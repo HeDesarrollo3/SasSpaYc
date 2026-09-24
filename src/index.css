@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0B1120;
+  --color-bg-elevated: #111827;
+  --color-surface-card: rgba(255, 255, 255, 0.04);
+  --color-surface-card-hover: rgba(255, 255, 255, 0.07);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+
+  --color-accent-from: #6366F1;
+  --color-accent-to: #8B5CF6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #38BDF8;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --font-sans: 'Inter', -apple-system, 'Outfit', sans-serif;
+}
+
+:root {
+  --motion-duration: 180ms;
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism y Elevación §5 */
+.glass-card {
+  background: var(--color-surface-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transition: transform var(--motion-duration) var(--motion-ease),
+              box-shadow var(--motion-duration) var(--motion-ease),
+              background var(--motion-duration) var(--motion-ease);
+}
+
+.glass-card:hover {
+  background: var(--color-surface-card-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+}
+
+/* Foco accesible obligatorio §6, §9 */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-from);
+  outline-offset: 2px;
+}
+
+/* Botón Primario §7 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-from), var(--color-accent-to));
+  color: var(--color-text-primary);
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform var(--motion-duration) var(--motion-ease), opacity var(--motion-duration) var(--motion-ease);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Skeleton §6 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-card) 25%, var(--color-surface-card-hover) 50%, var(--color-surface-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
