@@ -1,34 +1,187 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS — Design System v2
+   Fuente única de verdad. Paleta cerrada (DISENO_GUIDELINES.md §3).
+   ═══════════════════════════════════════════════════════════════════════════ */
 @theme {
-  --color-bg-base: #0B1120;
-  --color-bg-elevated: #111827;
-  --color-surface-card: rgba(255, 255, 255, 0.04);
-  --color-surface-card-hover: rgba(255, 255, 255, 0.07);
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
-  --color-border-strong: rgba(255, 255, 255, 0.16);
+  /* ═══ Tema claro «calma operativa» (docs/diseno/sistema-de-diseno.md) ═══
+     Marca por defecto: Eucalipto. Contraste AA comprobado sobre el lienzo. */
 
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
+  /* ── Fondos y superficies ── */
+  --color-bg-base: #F3F5F3;          /* lienzo */
+  --color-bg-elevated: #FFFFFF;      /* barras, cabecera, drawers */
+  --color-surface-card: #FFFFFF;     /* tarjetas y campos */
+  --color-surface-card-hover: #EEF2EF;
+  --color-border-subtle: #E1E6E2;
+  --color-border-strong: #C5CDC7;
+  --color-border-control: #86908A;   /* borde de campos: 3:1 sobre blanco */
 
-  --color-accent-from: #6366F1;
-  --color-accent-to: #8B5CF6;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: #38BDF8;
+  /* ── Texto ── */
+  --color-text-primary: #1C2420;     /* tinta */
+  --color-text-secondary: #4D5A54;   /* tinta-2 */
+  --color-text-muted: #66726C;       /* tinta-3 */
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  /* ── Marca (Eucalipto) ── */
+  --color-accent-from: #2D6A5A;
+  --color-accent-to: #357A67;
 
-  --font-sans: 'Inter', -apple-system, 'Outfit', sans-serif;
+  /* ── Estados ── */
+  --color-success: #1F7A4D;          /* cobrado */
+  --color-warning: #8F5500;          /* pendiente */
+  --color-danger: #B42318;           /* error */
+  --color-info: #1D5FA8;
+
+  /* ── Estados suaves (fondos de badges y banners) ── */
+  --color-success-soft: #E6F2EB;
+  --color-warning-soft: #FBF1DF;
+  --color-danger-soft: #FCEAE8;
+  --color-info-soft: #E6EEF8;
+  --color-accent-soft: #E3EFEA;
+
+  /* ── Texto legible sobre fondos suaves (contraste AA) ── */
+  --color-warning-text: #7A4800;
+  --color-success-text: #19643F;
+  --color-danger-text: #9A1E14;
+  --color-info-text: #174F8C;
+  --color-accent-text: #245548;
+
+  /* ── Piezas que cambian con el tema ── */
+  --color-on-accent: #FFFFFF;          /* texto sobre el color de marca */
+  --color-accent-hover: #245548;
+  --color-danger-hover: #912018;
+  --color-table-head: #F7F9F7;
+  --color-scrollbar: #C5CDC7;
+  --color-scrollbar-hover: #9AA59E;
+  --color-success-line: var(--color-success-line);
+  --color-warning-line: var(--color-warning-line);
+  --color-danger-line: var(--color-danger-line);
+  --color-info-line: var(--color-info-line);
+  --color-accent-line: var(--color-accent-line);
+
+  /* ═══ ALIAS DE COMPATIBILIDAD ═══ */
+  --color-error: #B42318;
+  --color-background-card: #FFFFFF;
+  --color-border-card: #E1E6E2;
+  --color-accent-primary: #2D6A5A;
+
+  /* ── Radios ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* ── Tipografía ── */
+  --font-sans: 'Hanken Grotesk', 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+
+  /* ── Escala tipográfica (DISENO_GUIDELINES §2) ──────────────────────────
+     Estos tokens generan las utilidades `text-display`, `text-h1`, `text-h2`,
+     `text-body`, `text-body-sm` y `text-label`. Estaban documentados en
+     `docs/02-GUIA-FRONTEND.md` pero **no existían en el CSS**, así que quien los
+     usaba obtenía una clase inexistente (sin error, sin efecto).
+     Se AÑADEN a la escala por defecto de Tailwind (`text-xs`, `text-sm`, …)
+     siguen funcionando. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 3rem;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.02em;
+
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 2.25rem;
+  --text-h1--font-weight: 700;
+  --text-h1--letter-spacing: -0.01em;
+
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h2--font-weight: 600;
+
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.25rem;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--font-weight: 600;
 }
 
 :root {
   --motion-duration: 180ms;
+  --motion-duration-emphasis: 250ms;
   --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Elevaciones (DISENO_GUIDELINES §5) */
+  --elevation-1: 0 1px 2px rgba(28, 36, 32, 0.06);
+  --elevation-2: 0 4px 12px rgba(28, 36, 32, 0.08);
+  --elevation-3: 0 12px 32px rgba(28, 36, 32, 0.16);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA OSCURO — se activa con <html data-theme="oscuro"> (botón ☾ de la cabecera).
+   Sólo redefine tokens: todos los componentes y utilidades los heredan.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='oscuro'] {
+  color-scheme: dark;
+  --color-bg-base: #0F1412;
+  --color-bg-elevated: #161C19;
+  --color-surface-card: #1A211E;
+  --color-surface-card-hover: #222A26;
+  --color-border-subtle: #2A332E;
+  --color-border-strong: #3A4540;
+  --color-border-control: #5C6862;
+
+  --color-text-primary: #E7EDE9;
+  --color-text-secondary: #B2BEB7;
+  --color-text-muted: #8D9992;
+
+  --color-accent-from: #5DB096;
+  --color-accent-to: #6CBDA3;
+  --color-on-accent: #0D1F19;
+  --color-accent-hover: #74C2A9;
+
+  --color-success: #4CC38A;
+  --color-warning: #E3A84B;
+  --color-danger: #F07467;
+  --color-danger-hover: #F48C81;
+  --color-info: #6EA9EC;
+  --color-error: #F07467;
+
+  --color-success-soft: rgba(76, 195, 138, 0.14);
+  --color-warning-soft: rgba(227, 168, 75, 0.14);
+  --color-danger-soft: rgba(240, 116, 103, 0.14);
+  --color-info-soft: rgba(110, 169, 236, 0.14);
+  --color-accent-soft: rgba(93, 176, 150, 0.16);
+
+  --color-success-text: #7FD8AB;
+  --color-warning-text: #F0C27A;
+  --color-danger-text: #F6A097;
+  --color-info-text: #9CC4F2;
+  --color-accent-text: #8ED0BA;
+
+  --color-success-line: rgba(76, 195, 138, 0.32);
+  --color-warning-line: rgba(227, 168, 75, 0.32);
+  --color-danger-line: rgba(240, 116, 103, 0.32);
+  --color-info-line: rgba(110, 169, 236, 0.32);
+  --color-accent-line: rgba(93, 176, 150, 0.36);
+
+  --color-table-head: #1E2622;
+  --color-scrollbar: #3A4540;
+  --color-scrollbar-hover: #55625B;
+  --color-background-card: #1A211E;
+  --color-border-card: #2A332E;
+  --color-accent-primary: #5DB096;
+
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
+html {
+  color-scheme: light;
 }
 
 body {
@@ -37,72 +190,466 @@ body {
   color: var(--color-text-primary);
   margin: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'tnum' 1;
 }
 
-/* Glassmorphism y Elevación §5 */
+/* Los importes y las tablas se leen mucho mejor con números tabulares:
+   todas las cifras ocupan el mismo ancho y las columnas de dinero se alinean. */
+.tabular,
+.data-table td.num,
+.data-table th.num,
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco accesible obligatorio (DISENO_GUIDELINES §6 y §9) */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-from);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbar discreta y coherente con el tema */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: var(--color-scrollbar-hover); background-clip: content-box; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENTES — dentro de `@layer components` a propósito.
+
+   Tailwind v4 declara el orden de capas como `theme, base, components, utilities`.
+   El CSS **sin capa** gana SIEMPRE a cualquier capa, así que si estas clases
+   quedaran fuera de `@layer` pisarían utilidades como `text-xs`, `pl-9` o
+   `justify-between` y no tendrían efecto sobre ellas.
+
+   Estando en `components`, las utilidades de Tailwind (capa posterior) pueden
+   sobrescribir cualquier propiedad de aquí, que es lo que se espera al componer.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUPERFICIES
+   ═══════════════════════════════════════════════════════════════════════════ */
 .glass-card {
   background: var(--color-surface-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--elevation-1);
   transition: transform var(--motion-duration) var(--motion-ease),
               box-shadow var(--motion-duration) var(--motion-ease),
               background var(--motion-duration) var(--motion-ease);
 }
 
 .glass-card:hover {
-  background: var(--color-surface-card-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--elevation-2);
 }
 
-/* Foco accesible obligatorio §6, §9 */
-*:focus-visible {
-  outline: 2px solid var(--color-accent-from);
-  outline-offset: 2px;
+/* Tarjeta estática: para KPIs y paneles que no son clicables.
+   Sin `translateY` para no sugerir interacción donde no la hay. */
+.panel {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-1);
 }
 
-/* Botón Primario §7 */
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-accent-from), var(--color-accent-to));
-  color: var(--color-text-primary);
-  padding: 10px 20px;
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTONES (DISENO_GUIDELINES §7)
+   Todos definen default · hover · active · focus-visible · disabled.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
   border-radius: var(--radius-sm);
+  font-size: 0.875rem;
   font-weight: 600;
-  border: none;
+  line-height: 1.25rem;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: transform var(--motion-duration) var(--motion-ease), opacity var(--motion-duration) var(--motion-ease);
+  white-space: nowrap;
+  transition: transform var(--motion-duration) var(--motion-ease),
+              background var(--motion-duration) var(--motion-ease),
+              border-color var(--motion-duration) var(--motion-ease),
+              opacity var(--motion-duration) var(--motion-ease);
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
+/* Primario: el gradiente se reserva para UNA acción protagonista por vista. */
+.btn-primary {
+  background: var(--color-accent-from);
+  color: var(--color-on-accent);
+  box-shadow: var(--elevation-1);
 }
+.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); box-shadow: var(--elevation-2); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
 
-.btn-primary:disabled {
+.btn-secondary {
+  background: var(--color-surface-card);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--color-surface-card-hover); border-color: var(--color-border-strong); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--color-surface-card-hover); color: var(--color-text-primary); }
+
+/* Destructivo: sólido, nunca gradiente. */
+.btn-danger {
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+}
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-hover); }
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-ghost:disabled,
+.btn-danger:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
-/* Skeleton §6 */
+/* Botón cuadrado para acciones de fila en tablas */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--motion-duration) var(--motion-ease),
+              color var(--motion-duration) var(--motion-ease);
+}
+.btn-icon:hover { background: var(--color-surface-card-hover); color: var(--color-text-primary); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORMULARIOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-height: 44px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  color: var(--color-text-primary);
+  transition: border-color var(--motion-duration) var(--motion-ease),
+              box-shadow var(--motion-duration) var(--motion-ease);
+}
+.input::placeholder, .textarea::placeholder { color: var(--color-text-muted); }
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-accent-from);
+  box-shadow: 0 0 0 3px rgba(45, 106, 90, 0.22);
+}
+
+.input[aria-invalid='true'],
+.select[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+.input[aria-invalid='true']:focus-visible {
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.18);
+}
+
+.input:disabled, .select:disabled, .textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2399A49D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.select option { background: var(--color-bg-elevated); color: var(--color-text-primary); }
+
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--color-danger);
+  margin-top: 4px;
+}
+
+.field-help {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES DE ESTADO
+   Siempre color + texto (+ ícono desde el componente). Nunca sólo color:
+   un usuario con daltonismo tiene que poder distinguir el estado.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.badge-success { background: var(--color-success-soft); color: var(--color-success-text); border-color: var(--color-success-line); }
+.badge-warning { background: var(--color-warning-soft); color: var(--color-warning-text); border-color: var(--color-warning-line); }
+.badge-danger  { background: var(--color-danger-soft);  color: var(--color-danger-text);  border-color: var(--color-danger-line); }
+.badge-info    { background: var(--color-info-soft);    color: var(--color-info-text);    border-color: var(--color-info-line); }
+.badge-accent  { background: var(--color-accent-soft);  color: var(--color-accent-text);  border-color: var(--color-accent-line); }
+.badge-neutral { background: var(--color-surface-card-hover); color: var(--color-text-secondary); border-color: var(--color-border-subtle); }
+
+/* Contador para el sidebar */
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLAS DE DATOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-table-head);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+}
+
+.data-table tbody td { border-bottom: 1px solid var(--color-border-subtle); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr {
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background var(--motion-duration) var(--motion-ease);
+}
+.data-table tbody tr:hover { background: var(--color-surface-card-hover); }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table td {
+  padding: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--color-text-secondary);
+  vertical-align: middle;
+}
+.data-table td.strong { color: var(--color-text-primary); font-weight: 500; }
+.data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRAWER LATERAL (formularios: no tapan el contexto como un modal)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 36, 32, 0.45);
+  z-index: 40;
+  animation: fade-in var(--motion-duration) var(--motion-ease);
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  width: min(560px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border-left: 1px solid var(--color-border-subtle);
+  box-shadow: var(--elevation-3);
+  z-index: 41;
+  animation: drawer-in var(--motion-duration-emphasis) var(--motion-ease);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+.drawer-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+}
+
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTTOM SHEET (móvil: el ticket del POS y las acciones del colaborador)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sheet-panel {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border-top: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--elevation-3);
+  z-index: 41;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: sheet-in var(--motion-duration-emphasis) var(--motion-ease);
+}
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SKELETONS (DISENO_GUIDELINES §6: nunca pantalla en blanco ni spinner)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--color-surface-card) 25%, var(--color-surface-card-hover) 50%, var(--color-surface-card) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-card) 25%,
+    var(--color-surface-card-hover) 50%,
+    var(--color-surface-card) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-sm);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   BANNERS DE ESTADO (códigos de error de la API)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  border: 1px solid transparent;
+}
+.banner-info    { background: var(--color-info-soft);    border-color: var(--color-info-line); color: var(--color-info-text); }
+.banner-warning { background: var(--color-warning-soft); border-color: var(--color-warning-line); color: var(--color-warning-text); }
+.banner-danger  { background: var(--color-danger-soft);  border-color: var(--color-danger-line); color: var(--color-danger-text); }
+.banner-success { background: var(--color-success-soft); border-color: var(--color-success-line); color: var(--color-success-text); }
+/*
+  `neutral` FALTABA, y no era teórico: `claseBanner('neutral')` ya se usaba en
+  LiquidacionesPage para el banner de «esta liquidación está anulada», así que
+  generaba `banner banner-neutral` — una clase que **no existía** y el banner
+  salía **sin fondo ni borde**. Es decir, el estado «anulada» no se comunicaba
+  visualmente: quedaba como texto suelto.
+
+  Se define con los mismos tokens que `.badge-neutral`, que sí existía, para que
+  las dos piezas neutras del sistema se vean igual.
+*/
+.banner-neutral { background: var(--color-surface-card-hover); border-color: var(--color-border-subtle); color: var(--color-text-secondary); }
+
+} /* ← fin de @layer components */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILIDADES PROPIAS — en `@layer utilities` para que convivan con las de
+   Tailwind al mismo nivel (y puedan combinarse con `hover:`, `md:`, etc.).
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+.text-gradient { color: var(--color-accent-from); }
+
+.divider { height: 1px; background: var(--color-border-subtle); border: none; }
+
+/* Contenedor del contenido de página, con ancho máximo legible */
+.page-container { max-width: 1280px; margin-inline: auto; width: 100%; }
+} /* ← fin de @layer utilities */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESIBILIDAD: movimiento reducido
+   (fuera de capas a propósito: usa `!important` y debe ganar siempre)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    transform: none !important;
+    scroll-behavior: auto !important;
   }
+  /* Se conserva el feedback funcional de carga (shimmer) porque comunica estado,
+     pero el resto de movimiento se anula. */
+  .skeleton { animation: none; background: var(--color-surface-card-hover); }
+  .glass-card:hover { transform: none; }
 }

@@ -4,15 +4,24 @@ import {
   ColaboradoresService,
   type ListarFiltros,
 } from '../services/colaboradores.service';
+import type { Paginated } from '../services/api';
 import type {
   ActualizarColaboradorInput,
+  Colaborador,
   CrearColaboradorInput,
 } from '../types/colaborador.types';
 
 const KEY = 'colaboradores';
 
+/**
+ * Listado de colaboradores **ya mapeado a `Colaborador`** (camelCase).
+ *
+ * El mapper vive en `ColaboradoresService.listar()` y el tipo de retorno lo
+ * declara: por eso aquí `data.data` es `Colaborador[]` y no
+ * `BackendColaborador[]`. No hay que volver a mapear en la página.
+ */
 export function useColaboradoresList(filtros: ListarFiltros) {
-  return useQuery({
+  return useQuery<Paginated<Colaborador>>({
     queryKey: [KEY, 'list', filtros],
     queryFn: () => ColaboradoresService.listar(filtros),
     placeholderData: (prev) => prev, // mantiene datos anteriores al cambiar de página

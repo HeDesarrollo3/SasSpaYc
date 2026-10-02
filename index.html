@@ -1,10 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="es-CO">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend-spa</title>
+
+    <!--
+      `viewport-fit=cover` + las meta de Apple de abajo son lo que hace que el
+      shell móvil (`100dvh` + bottom-nav de 48px con `env(safe-area-inset-*)`)
+      no quede bajo la barra de gestos del iPhone ni bajo el notch.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2D6A5A" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Mi Spa" />
+
+    <title>Mi Spa</title>
+    <!-- Tema guardado (claro/oscuro) antes de pintar, para que no parpadee. -->
+    <script>
+      try {
+        if (localStorage.getItem('tema') === 'oscuro') {
+          document.documentElement.dataset.theme = 'oscuro';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#161C19');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

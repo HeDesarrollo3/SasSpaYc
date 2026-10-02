@@ -13,6 +13,37 @@ import { useAuthStore } from './stores/auth.store';
 import { AuthService } from './services/auth.service';
 
 // -----------------------------------------------------------------------------
+// Service Worker (PWA) — sólo en producción
+// -----------------------------------------------------------------------------
+/**
+ * Registra `public/sw.js` (precaché de la cáscara + estrategias por tipo de
+ * petición: ver la cabecera del propio SW para el detalle y para el pendiente
+ * de la cola de escritura offline).
+ *
+ * **Sólo en producción.** En desarrollo el SW cachearía el `index.html` y los
+ * módulos que sirve Vite, y el HMR dejaría de verse: cambios que no aparecen o
+ * HTML viejo servido desde caché. `import.meta.env.PROD` es un literal que Vite
+ * sustituye en build, así que en dev este bloque se elimina del bundle.
+ *
+ * El registro es best-effort: si el navegador no soporta SW (`serviceWorker`
+ * ausente: Safari antiguo, algunos WebView, o contexto no seguro) o el registro
+ * falla, la app debe seguir funcionando igual — sólo se pierde el offline.
+ */
+function registerServiceWorker(): void {
+  if (!import.meta.env.PROD) return;
+  if (!('serviceWorker' in navigator)) return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error: unknown) => {
+      // Un SW que no registra no puede tumbar la app: se avisa y se sigue.
+      console.warn('[PWA] No se pudo registrar el service worker:', error);
+    });
+  });
+}
+
+registerServiceWorker();
+
+// -----------------------------------------------------------------------------
 // QueryClient global (TanStack Query)
 // -----------------------------------------------------------------------------
 const queryClient = new QueryClient({

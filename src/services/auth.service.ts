@@ -12,6 +12,7 @@ export const AuthService = {
    * 3. Pide `GET /auth/me` para obtener el perfil de negocio (rol real).
    */
   login: async ({ email, password }: LoginPayload): Promise<AuthUser> => {
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,

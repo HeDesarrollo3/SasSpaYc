@@ -17,12 +17,21 @@ export type ApiSuccess<T> = {
 export type ApiError = {
   success: false;
   statusCode: number;
-  error: string;      // código estable: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, ...
+  /** Código estable: UNAUTHORIZED, FORBIDDEN, INSUFFICIENT_STOCK, CAJA_NO_ABIERTA, ... */
+  error: string;
   message: string;
   timestamp: string;
 };
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
+
+/** Alias para no repetir el tipo de `meta` en cada servicio. */
+export type Paginated<T> = ApiSuccess<T[]> & {
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
+
+/** Respuesta de las operaciones idempotentes que devuelven el payload cacheado. */
+export type ApiRaw<T> = T;
 
 /** Callback global para que el auth store reaccione a 401 (logout, mensajes, etc.). */
 type UnauthorizedHandler = (reason: string, message: string) => void;
@@ -84,3 +93,51 @@ api.interceptors.response.use(
     } satisfies ApiError);
   },
 );
+
+// ---------------------------------------------------------------------------
+// Idempotencia (SPED §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Genera una clave de idempotencia.
+ *
+ * ⚠️ `crypto.randomUUID()` sólo existe en **contexto seguro** (HTTPS o
+ * `localhost`). Si el spa sirve la app por HTTP en una IP de la red local, esta
+ * función hace *fallback* a una implementación manual. Verifica HTTPS antes de
+ * producción.
+ */
+export function nuevaIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // RFC 4122 v4 con Math.random: suficiente para una clave de idempotencia
+  // de corta vida, no para criptografía.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * POST idempotente. Envía `Idempotency-Key` para que un reintento de red no
+ * duplique un cobro.
+ *
+ * **Importante:** pasa la **misma** `key` en todos los reintentos de una misma
+ * operación. Generar una clave nueva en cada click anula la idempotencia. La
+ * forma correcta es generarla una vez al abrir el formulario:
+ *
+ * ```tsx
+ * const [key] = useState(() => nuevaIdempotencyKey());
+ * await postIdempotent('/ventas', dto, key);
+ * ```
+ */
+export function postIdempotent<T>(
+  url: string,
+  body: unknown,
+  key: string = nuevaIdempotencyKey(),
+): Promise<ApiSuccess<T>> {
+  return api.post<unknown, ApiSuccess<T>>(url, body, {
+    headers: { 'Idempotency-Key': key },
+  });
+}
