@@ -67,6 +67,8 @@ export interface VentaDetalle extends Venta {
  * campo desaparece del payload.
  */
 export interface DetalleVentaInput {
+  /** Sin esto la base no sabe si el id es de un servicio o de un producto. */
+  tipo_item: 'servicio' | 'producto' | 'adicional';
   producto_servicio_id: number;
   cantidad: number;
   precio_unitario: number;

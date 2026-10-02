@@ -160,13 +160,19 @@ export interface ListarComandasFiltros {
 }
 
 export interface ExtraComandaInput {
-  adicionalId: number;
+  /** Extra del catálogo… */
+  adicionalId?: number;
+  /** …o adicional escrito a mano por el colaborador (migración 024). */
+  descripcion?: string;
+  montoUnitario?: number;
   cantidad?: number;
   notas?: string;
 }
 
 export interface ItemComandaInput {
   servicioId: number;
+  /** Sólo servicios de precio variable: valor elegido dentro del rango. */
+  precioUnitario?: number;
   cantidad?: number;
   /** Para extras con `tipo_precio = por_hora`. */
   horas?: number;
@@ -384,8 +390,11 @@ export const ComandasService = {
         cantidad: item.cantidad ?? 1,
         horas: item.horas,
         notas: item.notas,
+        precioUnitario: item.precioUnitario,
         extras: item.extras?.map((extra) => ({
           adicionalId: extra.adicionalId,
+          descripcion: extra.descripcion,
+          montoUnitario: extra.montoUnitario,
           cantidad: extra.cantidad ?? 1,
           notas: extra.notas,
         })),

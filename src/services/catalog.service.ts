@@ -31,6 +31,9 @@ export interface ItemCatalogo {
    * necesita para estimar sin inventar.
    */
   comision_sobre?: 'precio' | 'precio_menos_insumo' | null;
+  /** Precio variable (migración 024): rango permitido. `null` = precio fijo. */
+  precio_min?: number | null;
+  precio_max?: number | null;
   /** Sólo productos */
   stock_actual?: number | null;
   /** Sólo adicionales (= extras: costo adicional sobre un servicio) */
@@ -92,7 +95,13 @@ export const CatalogoService = {
   },
 
   listarServicios: async (
-    params: { activo?: boolean; categoria?: string; q?: string; page?: number; limit?: number } = {},
+    params: {
+      activo?: boolean;
+      categoria?: string;
+      q?: string;
+      page?: number;
+      limit?: number;
+    } = {},
   ) => {
     const qs = new URLSearchParams();
     if (params.activo !== undefined) qs.set('activo', String(params.activo));
@@ -105,7 +114,13 @@ export const CatalogoService = {
   },
 
   listarProductos: async (
-    params: { activo?: boolean; categoria?: string; q?: string; page?: number; limit?: number } = {},
+    params: {
+      activo?: boolean;
+      categoria?: string;
+      q?: string;
+      page?: number;
+      limit?: number;
+    } = {},
   ) => {
     const qs = new URLSearchParams();
     if (params.activo !== undefined) qs.set('activo', String(params.activo));
@@ -153,21 +168,26 @@ export const CatalogoService = {
       duracionMinutos: number;
       comisionSobre: 'precio' | 'precio_menos_insumo';
       activo: boolean;
+      /** Precio variable (migración 024). `null` = precio fijo. */
+      precioMin: number | null;
+      precioMax: number | null;
     }>,
   ): Promise<{ servicio_id: number; actualizado: boolean }> => {
-    const res = await api.patch<
-      unknown,
-      ApiSuccess<{ servicio_id: number; actualizado: boolean }>
-    >(`/catalogo/servicios/${id}`, {
-      nombre_servicio: cambios.nombreServicio,
-      categoria: cambios.categoria,
-      precio: cambios.precio,
-      costo_insumo: cambios.costoInsumo,
-      porcentaje_colaborador: cambios.porcentajeColaborador,
-      duracion_minutos: cambios.duracionMinutos,
-      comision_sobre: cambios.comisionSobre,
-      activo: cambios.activo,
-    });
+    const res = await api.patch<unknown, ApiSuccess<{ servicio_id: number; actualizado: boolean }>>(
+      `/catalogo/servicios/${id}`,
+      {
+        nombre_servicio: cambios.nombreServicio,
+        categoria: cambios.categoria,
+        precio: cambios.precio,
+        costo_insumo: cambios.costoInsumo,
+        porcentaje_colaborador: cambios.porcentajeColaborador,
+        duracion_minutos: cambios.duracionMinutos,
+        comision_sobre: cambios.comisionSobre,
+        activo: cambios.activo,
+        precio_min: cambios.precioMin,
+        precio_max: cambios.precioMax,
+      },
+    );
     return res.data;
   },
 
@@ -217,21 +237,21 @@ export const CatalogoService = {
       activo: boolean;
     }>,
   ): Promise<{ producto_id: number; actualizado: boolean }> => {
-    const res = await api.patch<
-      unknown,
-      ApiSuccess<{ producto_id: number; actualizado: boolean }>
-    >(`/catalogo/productos/${id}`, {
-      nombre_producto: cambios.nombreProducto,
-      precio_venta: cambios.precioVenta,
-      costo_compra: cambios.costoCompra,
-      stock_actual: cambios.stockActual,
-      stock_minimo: cambios.stockMinimo,
-      categoria: cambios.categoria,
-      codigo_barras: cambios.codigoBarras,
-      comisionable: cambios.comisionable,
-      porcentaje_colaborador: cambios.porcentajeColaborador,
-      activo: cambios.activo,
-    });
+    const res = await api.patch<unknown, ApiSuccess<{ producto_id: number; actualizado: boolean }>>(
+      `/catalogo/productos/${id}`,
+      {
+        nombre_producto: cambios.nombreProducto,
+        precio_venta: cambios.precioVenta,
+        costo_compra: cambios.costoCompra,
+        stock_actual: cambios.stockActual,
+        stock_minimo: cambios.stockMinimo,
+        categoria: cambios.categoria,
+        codigo_barras: cambios.codigoBarras,
+        comisionable: cambios.comisionable,
+        porcentaje_colaborador: cambios.porcentajeColaborador,
+        activo: cambios.activo,
+      },
+    );
     return res.data;
   },
 

@@ -272,17 +272,29 @@ const porcentajeOpcional = (etiqueta: string) =>
       `${etiqueta} debe estar entre 0 y 100`,
     );
 
-const servicioSchema = z.object({
-  categoria: textoObligatorio('La categoría es obligatoria'),
-  nombreServicio: textoObligatorio('El nombre del servicio es obligatorio'),
-  precio: importeObligatorio('El precio'),
-  costoInsumo: importeOpcional('El costo de insumo'),
-  porcentajeColaborador: porcentajeOpcional('El porcentaje del colaborador'),
-  // Añadidos por la migración 004: sólo se envían si se modifican.
-  duracionMinutos: enteroOpcional('La duración'),
-  comisionSobre: z.literal('').or(z.literal('precio')).or(z.literal('precio_menos_insumo')),
-  activo: z.boolean(),
-});
+const servicioSchema = z
+  .object({
+    categoria: textoObligatorio('La categoría es obligatoria'),
+    nombreServicio: textoObligatorio('El nombre del servicio es obligatorio'),
+    precio: importeObligatorio('El precio'),
+    costoInsumo: importeOpcional('El costo de insumo'),
+    porcentajeColaborador: porcentajeOpcional('El porcentaje del colaborador'),
+    // Añadidos por la migración 004: sólo se envían si se modifican.
+    duracionMinutos: enteroOpcional('La duración'),
+    comisionSobre: z.literal('').or(z.literal('precio')).or(z.literal('precio_menos_insumo')),
+    activo: z.boolean(),
+    // Migración 024: precio variable (vacíos = precio fijo).
+    precioMin: importeOpcional('El precio mínimo'),
+    precioMax: importeOpcional('El precio máximo'),
+  })
+  .refine((v) => (v.precioMin === '') === (v.precioMax === ''), {
+    message: 'Indica el mínimo y el máximo, o deja los dos vacíos',
+    path: ['precioMax'],
+  })
+  .refine((v) => v.precioMin === '' || Number(v.precioMax) >= Number(v.precioMin), {
+    message: 'El máximo no puede ser menor que el mínimo',
+    path: ['precioMax'],
+  });
 
 type ServicioForm = z.infer<typeof servicioSchema>;
 
@@ -290,6 +302,8 @@ type ServicioForm = z.infer<typeof servicioSchema>;
 type ServicioConCampos004 = Servicio & {
   duracion_minutos?: number | null;
   comision_sobre?: 'precio' | 'precio_menos_insumo' | null;
+  precio_min?: number | null;
+  precio_max?: number | null;
 };
 
 function valoresServicio(servicio: Servicio | null): ServicioForm {
@@ -304,6 +318,8 @@ function valoresServicio(servicio: Servicio | null): ServicioForm {
     duracionMinutos: extendido?.duracion_minutos != null ? String(extendido.duracion_minutos) : '',
     comisionSobre: extendido?.comision_sobre ?? '',
     activo: servicio?.activo ?? true,
+    precioMin: extendido?.precio_min != null ? String(extendido.precio_min) : '',
+    precioMax: extendido?.precio_max != null ? String(extendido.precio_max) : '',
   };
 }
 
@@ -331,6 +347,10 @@ function diferenciasServicio(original: ServicioForm, valores: ServicioForm): Cam
   if (valores.comisionSobre !== original.comisionSobre && valores.comisionSobre !== '')
     cambios.comisionSobre = valores.comisionSobre;
   if (valores.activo !== original.activo) cambios.activo = valores.activo;
+  if (valores.precioMin !== original.precioMin || valores.precioMax !== original.precioMax) {
+    cambios.precioMin = valores.precioMin === '' ? null : Number(valores.precioMin);
+    cambios.precioMax = valores.precioMax === '' ? null : Number(valores.precioMax);
+  }
 
   return cambios;
 }
@@ -906,7 +926,7 @@ function DrawerServicio({
   >({
     mutationFn: async (valores) => {
       if (!servicio) {
-        return CatalogoService.crearServicio({
+        const creado = await CatalogoService.crearServicio({
           categoria: valores.categoria.trim(),
           nombreServicio: valores.nombreServicio.trim(),
           precio: Number(valores.precio),
@@ -914,6 +934,14 @@ function DrawerServicio({
           porcentajeColaborador: aNumero(valores.porcentajeColaborador),
           activo: valores.activo,
         });
+        // El alta (RPC) no conoce el rango: se guarda justo después.
+        if (valores.precioMin !== '' && creado.servicio_id) {
+          await CatalogoService.actualizarServicio(creado.servicio_id, {
+            precioMin: Number(valores.precioMin),
+            precioMax: Number(valores.precioMax),
+          });
+        }
+        return creado;
       }
       const cambios = diferenciasServicio(original, valores);
       if (Object.keys(cambios).length === 0) {
@@ -1072,6 +1100,37 @@ function DrawerServicio({
                   <p className="field-help">
                     Opcionales. Ayudan a filtrar y a calcular comisiones.
                   </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Campo
+                    id="servicio-precio-min"
+                    etiqueta="Precio mínimo (si varía)"
+                    error={errors.precioMin?.message}
+                    ayuda="Ej.: cepillado según el largo. Vacío = precio fijo."
+                  >
+                    <input
+                      id="servicio-precio-min"
+                      inputMode="numeric"
+                      className="input tabular"
+                      aria-invalid={errors.precioMin ? true : undefined}
+                      {...register('precioMin')}
+                    />
+                  </Campo>
+                  <Campo
+                    id="servicio-precio-max"
+                    etiqueta="Precio máximo (si varía)"
+                    error={errors.precioMax?.message}
+                    ayuda="El colaborador elige el valor dentro del rango."
+                  >
+                    <input
+                      id="servicio-precio-max"
+                      inputMode="numeric"
+                      className="input tabular"
+                      aria-invalid={errors.precioMax ? true : undefined}
+                      {...register('precioMax')}
+                    />
+                  </Campo>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -201,7 +201,13 @@ function formatters() {
 /** `2026-02-23T18:04:11Z` → `23 feb 2026` */
 export function formatFecha(iso: string | Date | null | undefined): string {
   if (!iso) return '—';
-  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  // Una fecha SIN hora (`2026-10-01`, columnas `date` como los periodos de
+  // liquidación) se interpreta como medianoche UTC, que en Colombia todavía es
+  // el día anterior: «1 oct» salía «30 sept». Se lee al mediodía UTC.
+  const d =
+    typeof iso === 'string'
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00Z` : iso)
+      : iso;
   if (Number.isNaN(d.getTime())) return '—';
   return formatters().fecha.format(d);
 }

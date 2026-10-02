@@ -127,11 +127,11 @@ function mensajeDeError(err: unknown): string {
 /** `lg` de Tailwind son 1024px: por debajo, el ticket vive en un sheet. */
 function useEsMovil(): boolean {
   const [esMovil, setEsMovil] = useState(() =>
-    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 1023px)').matches,
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 1279px)').matches,
   );
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)');
+    const mq = window.matchMedia('(max-width: 1279px)');
     const onChange = (e: MediaQueryListEvent) => setEsMovil(e.matches);
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
@@ -450,6 +450,7 @@ export function POSPage() {
 
       if (ventaId === null) {
         const detalles: DetalleVentaInput[] = lineas.map((l) => ({
+          tipo_item: l.item.tipo as DetalleVentaInput['tipo_item'],
           producto_servicio_id: l.item.id,
           cantidad: l.cantidad,
           precio_unitario: l.item.precio,
@@ -946,13 +947,13 @@ export function POSPage() {
         encabezado, este número deja de cuadrar y vuelve el scroll corto** — que
         en un terminal de caja es justo lo que no se quiere.
       */}
-      <div className="grid grid-cols-1 gap-4 lg:h-[calc(100vh-12rem)] lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 xl:h-[calc(100vh-12rem)] xl:grid-cols-12">
         {/* ── Panel izquierdo: catálogo ── */}
         <section
-          className="panel flex min-h-0 flex-col gap-3 overflow-hidden p-4 lg:col-span-7"
+          className="panel flex min-h-0 flex-col gap-3 overflow-hidden p-4 xl:col-span-7"
           aria-label="Catálogo"
         >
-          <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+          <div className="flex shrink-0 flex-col gap-3 2xl:flex-row">
             <div className="flex flex-1 items-center gap-2 rounded-sm border border-border-subtle bg-surface-card px-3 focus-within:border-border-strong">
               <Search size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
               <label htmlFor="pos-buscar" className="sr-only">
@@ -993,7 +994,7 @@ export function POSPage() {
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {catalogoQ.isPending ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="skeleton h-28" />
                 ))}
@@ -1020,7 +1021,7 @@ export function POSPage() {
                   : 'Sin resultados para esa búsqueda.'}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
                 {itemsFiltrados.map((item) => (
                   <TarjetaCatalogo key={item.id} item={item} onAgregar={agregarItem} />
                 ))}
@@ -1032,7 +1033,7 @@ export function POSPage() {
         {/* ── Panel derecho: ticket (escritorio) ── */}
         {!esMovil && (
           <aside
-            className="panel flex min-h-0 flex-col overflow-hidden p-4 lg:col-span-5"
+            className="panel flex min-h-0 flex-col overflow-hidden p-4 xl:col-span-5"
             aria-label="Ticket de venta"
           >
             {ticketPanel}

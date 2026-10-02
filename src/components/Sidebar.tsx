@@ -16,6 +16,7 @@ import {
   Sparkles,
   X,
   Landmark,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
@@ -60,6 +61,12 @@ const MENU_ITEMS: MenuItem[] = [
   },
 
   // Solo admin
+  {
+    label: 'Reportes',
+    path: '/reportes',
+    icon: BarChart3,
+    roles: ['administrador'],
+  },
   {
     label: 'Bancos y efectivo',
     path: '/finanzas',

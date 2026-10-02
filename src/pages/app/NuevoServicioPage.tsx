@@ -101,6 +101,14 @@ export function NuevoServicioPage() {
   const [extrasMarcados, setExtrasMarcados] = useState<number[]>([]);
   /** Otros servicios del MISMO colaborador y de la MISMA área (categoría) que el principal. */
   const [otrosServiciosIds, setOtrosServiciosIds] = useState<number[]>([]);
+  /** Adicionales que pidió el cliente y no están en el catálogo (migración 024). */
+  const [extrasManuales, setExtrasManuales] = useState<
+    { id: number; descripcion: string; valor: number }[]
+  >([]);
+  const [nuevoExtraTexto, setNuevoExtraTexto] = useState('');
+  const [nuevoExtraValor, setNuevoExtraValor] = useState('');
+  /** Precio elegido en servicios de precio variable (texto del input). */
+  const [precioVariable, setPrecioVariable] = useState('');
   const [minutosAtras, setMinutosAtras] = useState(0);
 
   const [observaciones, setObservaciones] = useState('');
@@ -175,6 +183,36 @@ export function NuevoServicioPage() {
   const servicioElegido = servicios.find((s) => s.id === servicioId);
   const extrasElegidos = extrasCatalogo.filter((e) => extrasMarcados.includes(e.id));
 
+  // Precio variable: el servicio trae un rango y el colaborador elige el valor.
+  const tieneRango =
+    servicioElegido?.precio_min !== null &&
+    servicioElegido?.precio_min !== undefined &&
+    servicioElegido?.precio_max !== null &&
+    servicioElegido?.precio_max !== undefined;
+  const precioElegido = tieneRango
+    ? Number(precioVariable.replace(/[^\d]/g, '')) || Number(servicioElegido?.precio ?? 0)
+    : Number(servicioElegido?.precio ?? 0);
+  const precioFueraDeRango =
+    tieneRango &&
+    (precioElegido < Number(servicioElegido?.precio_min) ||
+      precioElegido > Number(servicioElegido?.precio_max));
+  const servicioConPrecio = servicioElegido
+    ? { ...servicioElegido, precio: precioElegido }
+    : undefined;
+  const totalExtrasManuales = extrasManuales.reduce((acc, e) => acc + e.valor, 0);
+
+  const agregarExtraManual = () => {
+    const descripcion = nuevoExtraTexto.trim();
+    const valor = Number(nuevoExtraValor.replace(/[^\d]/g, ''));
+    if (!descripcion || !valor) {
+      toast.error('Escribe qué pidió el cliente y cuánto vale.');
+      return;
+    }
+    setExtrasManuales((prev) => [...prev, { id: Date.now(), descripcion, valor }]);
+    setNuevoExtraTexto('');
+    setNuevoExtraValor('');
+  };
+
   // Servicios adicionales: sólo de la misma categoría que el principal. Un
   // servicio de otra área (p. ej. uñas tras un peinado) lo registra quien lo hace.
   const categoriaPrincipal = (servicioElegido?.categoria ?? '').trim().toLowerCase();
@@ -192,21 +230,22 @@ export function NuevoServicioPage() {
   const otrosServicios = serviciosMismaArea.filter((s) => otrosServiciosIds.includes(s.id));
 
   const totalEstimado =
-    Number(servicioElegido?.precio ?? 0) +
+    precioElegido +
+    totalExtrasManuales +
     extrasElegidos.reduce((acc, e) => acc + Number(e.precio ?? 0), 0) +
     otrosServicios.reduce((acc, s) => acc + Number(s.precio ?? 0), 0);
 
-  const comisionPrincipal = estimarComisionLinea(
-    servicioElegido,
-    1,
-    extrasElegidos.map((e) => ({
+  const comisionPrincipal = estimarComisionLinea(servicioConPrecio, 1, [
+    ...extrasElegidos.map((e) => ({
       monto_unitario: Number(e.precio ?? 0),
       cantidad: 1,
       // Un extra comisiona si trae porcentaje propio: el catálogo no expone
       // siempre el booleano `genera_comision`.
       comisionable: typeof e.porcentaje_comision === 'number' && e.porcentaje_comision > 0,
     })),
-  );
+    // Los adicionales escritos a mano comisionan con el % del servicio.
+    ...extrasManuales.map((e) => ({ monto_unitario: e.valor, cantidad: 1, comisionable: true })),
+  ]);
 
   const comisionOtros = otrosServicios.map((s) => estimarComisionLinea(s, 1, []));
   const comision = {
@@ -248,6 +287,11 @@ export function NuevoServicioPage() {
       toast.error('Elige el servicio que hiciste.');
       return;
     }
+    if (precioFueraDeRango) {
+      setPaso(2);
+      toast.error('El precio del servicio está fuera del rango permitido.');
+      return;
+    }
     if (!clienteValido) {
       setPaso(2);
       toast.error('Indica el cliente: selecciónalo o escribe su nombre.');
@@ -278,7 +322,15 @@ export function NuevoServicioPage() {
         {
           servicioId: servicioElegido.id,
           cantidad: 1,
-          extras: extrasElegidos.map((e) => ({ adicionalId: e.id, cantidad: 1 })),
+          precioUnitario: tieneRango ? precioElegido : undefined,
+          extras: [
+            ...extrasElegidos.map((e) => ({ adicionalId: e.id, cantidad: 1 })),
+            ...extrasManuales.map((e) => ({
+              descripcion: e.descripcion,
+              montoUnitario: e.valor,
+              cantidad: 1,
+            })),
+          ],
         },
         ...otrosServicios.map((s) => ({ servicioId: s.id, cantidad: 1 })),
       ],
@@ -289,7 +341,11 @@ export function NuevoServicioPage() {
     setExtrasMarcados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const hayDatos = servicioElegido !== undefined || clienteValido || extrasMarcados.length > 0;
+  const hayDatos =
+    servicioElegido !== undefined ||
+    clienteValido ||
+    extrasMarcados.length > 0 ||
+    extrasManuales.length > 0;
 
   const salir = () => {
     if (hayDatos) setConfirmarSalida(true);
@@ -523,6 +579,92 @@ export function NuevoServicioPage() {
             </section>
           )}
 
+          {/* Precio variable (p. ej. cepillado según el largo) */}
+          {tieneRango && servicioElegido && (
+            <section className="space-y-2">
+              <h2 className="text-h2 text-text-primary">Precio del servicio</h2>
+              <label htmlFor="precio-variable" className="label">
+                {servicioElegido.nombre}: entre {formatMoney(Number(servicioElegido.precio_min))} y{' '}
+                {formatMoney(Number(servicioElegido.precio_max))}
+              </label>
+              <input
+                id="precio-variable"
+                inputMode="numeric"
+                className="input tabular"
+                placeholder={String(servicioElegido.precio)}
+                value={precioVariable}
+                aria-invalid={precioFueraDeRango}
+                onChange={(e) => setPrecioVariable(e.target.value)}
+              />
+              <p className={precioFueraDeRango ? 'field-error' : 'field-help'}>
+                {precioFueraDeRango
+                  ? 'Ese valor está fuera del rango del servicio.'
+                  : `Se cobrará ${formatMoney(precioElegido)}. Recepción lo confirma al cobrar.`}
+              </p>
+            </section>
+          )}
+
+          {/* Adicional que pidió el cliente (escrito a mano) */}
+          <section className="space-y-3">
+            <h2 className="text-h2 text-text-primary">
+              ¿El cliente pidió algo más?{' '}
+              <span className="font-normal text-text-muted">(opcional)</span>
+            </h2>
+            <p className="text-body-sm text-text-secondary">
+              Por ejemplo «mechón» o «producto X». Escribe qué fue y cuánto vale; recepción lo
+              confirma al cobrar y comisiona con el mismo porcentaje del servicio.
+            </p>
+            {extrasManuales.length > 0 && (
+              <ul className="space-y-2">
+                {extrasManuales.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex min-h-12 items-center justify-between gap-3 rounded-sm border border-accent-from bg-accent-soft px-3 py-2"
+                  >
+                    <span className="min-w-0 truncate text-body text-text-primary">
+                      {e.descripcion}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="tabular text-body-sm text-text-primary">
+                        {formatMoney(e.valor)}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-icon"
+                        aria-label={`Quitar ${e.descripcion}`}
+                        onClick={() =>
+                          setExtrasManuales((prev) => prev.filter((x) => x.id !== e.id))
+                        }
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="grid grid-cols-[1fr_8rem] gap-2">
+              <input
+                className="input"
+                placeholder="Qué pidió"
+                aria-label="Qué pidió el cliente"
+                value={nuevoExtraTexto}
+                onChange={(e) => setNuevoExtraTexto(e.target.value)}
+              />
+              <input
+                className="input tabular"
+                inputMode="numeric"
+                placeholder="Valor"
+                aria-label="Valor del adicional"
+                value={nuevoExtraValor}
+                onChange={(e) => setNuevoExtraValor(e.target.value)}
+              />
+            </div>
+            <button type="button" className="btn-secondary w-full" onClick={agregarExtraManual}>
+              Agregar adicional
+            </button>
+          </section>
+
           {/* Extras */}
           <section className="space-y-3">
             <h2 className="text-h2 text-text-primary">
@@ -538,7 +680,7 @@ export function NuevoServicioPage() {
                 </p>
                 <p className="mt-1 text-body-sm text-text-secondary">
                   Sólo se pueden marcar extras dados de alta por administración (piedras calientes,
-                  aceites, aromaterapia…). No se pueden escribir a mano.
+                  aceites, aromaterapia…). Si el cliente pidió otra cosa, agrégala arriba.
                 </p>
               </div>
             ) : (
@@ -619,7 +761,7 @@ export function NuevoServicioPage() {
               <li className="flex items-start justify-between gap-3">
                 <span className="text-text-primary">{servicioElegido.nombre}</span>
                 <span className="tabular shrink-0 text-text-primary">
-                  {formatMoney(servicioElegido.precio)}
+                  {formatMoney(precioElegido)}
                 </span>
               </li>
               {otrosServicios.map((s) => (
@@ -627,6 +769,14 @@ export function NuevoServicioPage() {
                   <span className="text-text-primary">{s.nombre}</span>
                   <span className="tabular shrink-0 text-text-primary">
                     {formatMoney(s.precio)}
+                  </span>
+                </li>
+              ))}
+              {extrasManuales.map((e) => (
+                <li key={`man-${e.id}`} className="flex items-start justify-between gap-3 pl-4">
+                  <span className="text-text-secondary">+ {e.descripcion}</span>
+                  <span className="tabular shrink-0 text-text-secondary">
+                    {formatMoney(e.valor)}
                   </span>
                 </li>
               ))}

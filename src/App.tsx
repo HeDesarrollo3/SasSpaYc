@@ -24,15 +24,11 @@ import { useAuthStore } from './stores/auth.store';
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
-const POSPage = lazy(() =>
-  import('./pages/POSPage').then((m) => ({ default: m.POSPage })),
-);
+const POSPage = lazy(() => import('./pages/POSPage').then((m) => ({ default: m.POSPage })));
 const ColaboradoresPage = lazy(() =>
   import('./pages/ColaboradoresPage').then((m) => ({ default: m.ColaboradoresPage })),
 );
-const CajasPage = lazy(() =>
-  import('./pages/CajasPage').then((m) => ({ default: m.CajasPage })),
-);
+const CajasPage = lazy(() => import('./pages/CajasPage').then((m) => ({ default: m.CajasPage })));
 const CuentasPage = lazy(() =>
   import('./pages/CuentasPage').then((m) => ({ default: m.CuentasPage })),
 );
@@ -41,6 +37,9 @@ const CobrosPage = lazy(() =>
 );
 const CuentasFinancierasPage = lazy(() =>
   import('./pages/CuentasFinancierasPage').then((m) => ({ default: m.CuentasFinancierasPage })),
+);
+const ReportesPage = lazy(() =>
+  import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })),
 );
 const LiquidacionesPage = lazy(() =>
   import('./pages/LiquidacionesPage').then((m) => ({ default: m.LiquidacionesPage })),
@@ -171,6 +170,14 @@ export const App: React.FC = () => {
             element={
               <RequireRole roles={['administrador']}>
                 <LiquidacionesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="reportes"
+            element={
+              <RequireRole roles={['administrador']}>
+                <ReportesPage />
               </RequireRole>
             }
           />
