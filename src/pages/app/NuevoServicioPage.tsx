@@ -39,7 +39,7 @@ import {
   comandasKeys,
   type CrearComandaInput,
 } from '../../services/comandas.service';
-import { estimarComisionLinea } from '../../hooks/useComandas';
+import { estimarComisionLinea, useMisComandas } from '../../hooks/useComandas';
 import { useAuthStore } from '../../stores/auth.store';
 import { api, type ApiSuccess } from '../../services/api';
 import { formatMoney, formatPorcentaje } from '../../lib/format';
@@ -151,6 +151,23 @@ export function NuevoServicioPage() {
     retry: false,
   });
   const porcentajeReferido = miPerfil.data?.porcentaje_referido ?? null;
+
+  // «Los que más haces»: servicios de sus últimos 50 registros, por frecuencia.
+  const historial = useMisComandas({}, { limit: 50 });
+  const frecuentes = useMemo(() => {
+    const cuenta = new Map<number, number>();
+    for (const c of historial.data?.data ?? []) {
+      for (const it of c.items ?? []) {
+        if (user?.colaborador_id && it.colaborador_id && it.colaborador_id !== user.colaborador_id)
+          continue;
+        cuenta.set(it.servicio_id, (cuenta.get(it.servicio_id) ?? 0) + 1);
+      }
+    }
+    return [...cuenta.entries()]
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+  }, [historial.data, user?.colaborador_id]);
 
   const catalogo = useQuery({
     queryKey: ['catalogo', 'items', true],
@@ -421,8 +438,19 @@ export function NuevoServicioPage() {
           filtro={filtroServicio}
           onFiltro={setFiltroServicio}
           seleccionadoId={servicioId}
-          onSeleccionar={setServicioId}
+          onSeleccionar={(id) => {
+            setServicioId(id);
+            setComboId(null);
+          }}
           cargando={catalogo.isPending}
+          combos={combosVigentes.data ?? []}
+          comboId={comboId}
+          onElegirCombo={(idCombo, idServicio) => {
+            setServicioId(idServicio);
+            setComboId(idCombo);
+          }}
+          area={miPerfil.data?.area ?? null}
+          frecuentes={frecuentes}
         />
       )}
 
