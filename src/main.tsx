@@ -7,6 +7,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
 import App from './App';
 import './index.css';
+import { activarTablasEnTarjetas } from './lib/tablasEnTarjetas';
 import { supabase } from './services/supabase';
 import { setUnauthorizedHandler } from './services/api';
 import { useAuthStore } from './stores/auth.store';
@@ -49,7 +50,7 @@ registerServiceWorker();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,        // 30s: evita refetch agresivo en navegación
+      staleTime: 30_000, // 30s: evita refetch agresivo en navegación
       retry: 1,
       refetchOnWindowFocus: false,
     },
@@ -63,10 +64,7 @@ const queryClient = new QueryClient({
 setUnauthorizedHandler(async (reason, message) => {
   await AuthService.logout();
   useAuthStore.getState().clear();
-  localStorage.setItem(
-    'session_reason',
-    JSON.stringify({ reason, message, at: Date.now() }),
-  );
+  localStorage.setItem('session_reason', JSON.stringify({ reason, message, at: Date.now() }));
   if (window.location.pathname !== '/login') {
     window.location.href = '/login';
   }
@@ -98,3 +96,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+activarTablasEnTarjetas();

@@ -62,9 +62,19 @@ export function MetaCard({
   const formatear = unidadDeTipo(meta.tipo) === 'moneda' ? formatMoney : formatNumero;
   const bono = meta.bono === null || meta.bono === undefined ? null : Number(meta.bono);
 
+  // «Esta semana · 1 sept – 30 sept» confundía: el periodo es CADA CUÁNTO se mide
+  // la meta (diaria, semanal, mensual) y las fechas son CUÁNDO está vigente.
+  const ADJETIVO: Record<string, string> = { dia: 'diaria', semana: 'semanal', mes: 'mensual' };
+  const tipoMeta = `Meta ${ADJETIVO[meta.periodo] ?? etiquetaPeriodo(meta.periodo).toLowerCase()}`;
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const vencida = !!meta.vigente_hasta && meta.vigente_hasta.slice(0, 10) < hoy;
   const vigencia = meta.vigente_hasta
-    ? `${fechaCorta(meta.vigente_desde)} – ${fechaCorta(meta.vigente_hasta)}`
-    : `Desde el ${fechaCorta(meta.vigente_desde)}`;
+    ? `${vencida ? 'vigente hasta' : 'vigente del'} ${
+        vencida
+          ? fechaCorta(meta.vigente_hasta)
+          : `${fechaCorta(meta.vigente_desde)} al ${fechaCorta(meta.vigente_hasta)}`
+      }`
+    : `vigente desde el ${fechaCorta(meta.vigente_desde)}`;
 
   return (
     <article className="panel p-4" aria-labelledby={idTitulo} aria-busy={ocupada}>
@@ -74,7 +84,7 @@ export function MetaCard({
             {etiquetaTipo(meta.tipo)}
           </h3>
           <p className="mt-0.5 text-body-sm text-text-muted">
-            {etiquetaPeriodo(meta.periodo)} · {vigencia}
+            {tipoMeta} · {vigencia}
           </p>
         </div>
 
@@ -82,6 +92,7 @@ export function MetaCard({
           <span className={claseBadge(meta.origen === 'personal' ? 'accent' : 'info')}>
             {meta.origen === 'personal' ? 'Personal' : 'Del negocio'}
           </span>
+          {vencida && <span className={claseBadge('neutral')}>Vencida</span>}
           {!meta.activa && (
             <span className={claseBadge('neutral')}>
               <Pause size={12} aria-hidden="true" />
@@ -107,8 +118,8 @@ export function MetaCard({
         <p className="mt-2 flex items-center gap-1.5 text-body-sm text-warning-text">
           <Award size={14} className="shrink-0" aria-hidden="true" />
           <span>
-            Bono de <span className="tabular font-semibold">{formatMoney(bono)}</span> si la
-            cumples (lo fija administración).
+            Bono de <span className="tabular font-semibold">{formatMoney(bono)}</span> si la cumples
+            (lo fija administración).
           </span>
         </p>
       )}

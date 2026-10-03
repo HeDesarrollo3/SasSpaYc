@@ -848,7 +848,7 @@ export function NuevoServicioPage() {
             <textarea
               id="paso3-notas"
               rows={3}
-              className="textarea"
+              className="textarea scroll-mb-48"
               placeholder="Algo que recepción deba saber al cobrar…"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
@@ -876,7 +876,16 @@ export function NuevoServicioPage() {
       )}
 
       {/* Acciones */}
-      <footer className="sticky bottom-24 z-10 flex gap-2 rounded-md border border-border-subtle bg-bg-elevated/95 p-3 backdrop-blur-md lg:bottom-4">
+      {/*
+        En el resumen (paso 3) la barra deja de flotar: flotando tapaba «Notas»
+        al abrir el teclado del celular. En los pasos 1 y 2 sigue fija para que
+        «Siguiente» esté siempre a mano.
+      */}
+      <footer
+        className={`${
+          paso === 3 ? 'mt-4' : 'sticky bottom-24 z-10 lg:bottom-4'
+        } flex gap-2 rounded-md border border-border-subtle bg-bg-elevated/95 p-3 backdrop-blur-md`}
+      >
         {paso > 1 && (
           <button
             type="button"

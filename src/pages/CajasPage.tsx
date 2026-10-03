@@ -113,7 +113,8 @@ function AvisoError({ error, onDescartar }: { error: unknown; onDescartar?: () =
 
   const e = error as Partial<ApiError>;
   const codigo = e.error ?? 'INTERNAL_ERROR';
-  const tono = codigo === 'CAJA_CON_PENDIENTES' || codigo === 'CAJA_YA_ABIERTA' ? 'warning' : 'danger';
+  const tono =
+    codigo === 'CAJA_CON_PENDIENTES' || codigo === 'CAJA_YA_ABIERTA' ? 'warning' : 'danger';
   const Icono = tono === 'warning' ? TriangleAlert : CircleAlert;
 
   return (
@@ -128,7 +129,12 @@ function AvisoError({ error, onDescartar }: { error: unknown; onDescartar?: () =
         </p>
       </div>
       {onDescartar && (
-        <button type="button" className="btn-icon" onClick={onDescartar} aria-label="Descartar aviso">
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={onDescartar}
+          aria-label="Descartar aviso"
+        >
           <X size={14} />
         </button>
       )}
@@ -233,10 +239,14 @@ function FilaResumen({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className={`text-body-sm ${destacado ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>
+      <span
+        className={`text-body-sm ${destacado ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}
+      >
         {etiqueta}
       </span>
-      <span className={`tabular text-body ${destacado ? 'font-bold text-text-primary' : 'text-text-secondary'}`}>
+      <span
+        className={`tabular text-body ${destacado ? 'font-bold text-text-primary' : 'text-text-secondary'}`}
+      >
         {valor}
       </span>
     </div>
@@ -299,6 +309,9 @@ function PanelApertura({
         saldoInicial: values.saldoInicial,
         colaboradorId,
         observaciones: values.observaciones.trim() || undefined,
+        cuentaFinancieraId: values.cuentaFinancieraId
+          ? Number(values.cuentaFinancieraId)
+          : undefined,
       }),
     onSuccess: () => {
       setErrorApi(null);
@@ -414,7 +427,11 @@ function PanelApertura({
 // ─────────────────────────────────────────────────────────────────────────────
 const movimientoSchema = z.object({
   monto: z.number({ error: 'Ingresa el monto' }).min(0.01, 'El monto debe ser mayor que cero'),
-  concepto: z.string().trim().min(1, 'El concepto es obligatorio').max(200, 'Máximo 200 caracteres'),
+  concepto: z
+    .string()
+    .trim()
+    .min(1, 'El concepto es obligatorio')
+    .max(200, 'Máximo 200 caracteres'),
   formaPago: z.enum(['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'], {
     error: 'Selecciona la forma de pago',
   }),
@@ -475,7 +492,8 @@ function DrawerMovimiento({
   });
 
   const onSubmit = handleSubmit((values) => registrar.mutate(values));
-  const excedeEfectivo = !esIngreso && Number.isFinite(montoActual) && montoActual > esperadoEfectivo;
+  const excedeEfectivo =
+    !esIngreso && Number.isFinite(montoActual) && montoActual > esperadoEfectivo;
 
   return (
     <Drawer
@@ -492,11 +510,7 @@ function DrawerMovimiento({
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={registrar.isPending}
-          >
+          <button type="submit" className="btn-primary" disabled={registrar.isPending}>
             {registrar.isPending ? (
               <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
             ) : esIngreso ? (
@@ -518,8 +532,8 @@ function DrawerMovimiento({
             <div>
               <p className="font-semibold">Este egreso supera el efectivo esperado en caja.</p>
               <p className="mt-0.5">
-                Esperado en efectivo {formatMoney(esperadoEfectivo)} · egreso {formatMoney(montoActual)}. El
-                arqueo quedará en faltante.
+                Esperado en efectivo {formatMoney(esperadoEfectivo)} · egreso{' '}
+                {formatMoney(montoActual)}. El arqueo quedará en faltante.
               </p>
             </div>
           </div>
@@ -695,10 +709,20 @@ function DrawerCierre({
   const puedeConfirmar =
     contadoValido && !faltaObservaciones && resumen.puede_cerrar && !cerrar.isPending;
 
-  const tonoDiferencia = diferencia === 0 ? 'success' : diferencia !== null && diferencia > 0 ? 'warning' : 'danger';
-  const IconoDiferencia = diferencia === 0 ? CircleCheckBig : diferencia !== null && diferencia > 0 ? TrendingUp : TriangleAlert;
+  const tonoDiferencia =
+    diferencia === 0 ? 'success' : diferencia !== null && diferencia > 0 ? 'warning' : 'danger';
+  const IconoDiferencia =
+    diferencia === 0
+      ? CircleCheckBig
+      : diferencia !== null && diferencia > 0
+        ? TrendingUp
+        : TriangleAlert;
   const etiquetaDiferencia =
-    diferencia === 0 ? 'Cuadre exacto' : diferencia !== null && diferencia > 0 ? 'Sobrante' : 'Faltante';
+    diferencia === 0
+      ? 'Cuadre exacto'
+      : diferencia !== null && diferencia > 0
+        ? 'Sobrante'
+        : 'Faltante';
 
   return (
     <Drawer
@@ -991,9 +1015,9 @@ export function CajasPage() {
 
   // ── B) Con caja abierta ────────────────────────────────────────────────────
   const metaCaja = metaEstado(ESTADO_CAJA, caja.estado);
-  // ⚠️ `cajas` no tiene columna `cuenta_financiera_id` (N6 del esquema verificado),
-  // así que el nombre de la cuenta sólo se conoce en la sesión en la que se abrió.
-  const nombreCuenta = cuentaApertura?.nombre ?? 'Cuenta no asociada';
+  // La cuenta del turno se guarda en `cajas.cuenta_financiera_id` (desde la 026).
+  const cuentaDelTurno = (cuentasQuery.data ?? []).find((c) => c.id === caja.cuenta_financiera_id);
+  const nombreCuenta = cuentaDelTurno?.nombre ?? cuentaApertura?.nombre ?? 'Caja del turno';
   const puedeCerrar = resumen?.puede_cerrar === true;
   const motivoBloqueoCierre = resumen
     ? resumen.puede_cerrar
@@ -1014,11 +1038,7 @@ export function CajasPage() {
             <div className="flex flex-wrap items-center gap-3">
               <h2
                 className="text-h2 text-text-primary"
-                title={
-                  cuentaApertura
-                    ? undefined
-                    : 'La tabla `cajas` todavía no guarda la cuenta financiera, así que sólo se muestra la elegida al abrir el turno en esta sesión.'
-                }
+                title="Cuenta de efectivo del turno: los ingresos y egresos en efectivo mueven su saldo."
               >
                 {nombreCuenta}
               </h2>
@@ -1028,8 +1048,14 @@ export function CajasPage() {
               </span>
             </div>
             <p className="text-body-sm text-text-secondary">
-              Abierta el <span className="text-text-primary">{formatFechaHora(caja.fecha_apertura)}</span> por{' '}
-              <span className="text-text-primary">{quienAbrio}</span>
+              Abierta el{' '}
+              <span className="text-text-primary">{formatFechaHora(caja.fecha_apertura)}</span>
+              {caja.colaborador_apertura_id ? (
+                <>
+                  {' '}
+                  por <span className="text-text-primary">{quienAbrio}</span>
+                </>
+              ) : null}
             </p>
           </div>
 
@@ -1112,13 +1138,17 @@ export function CajasPage() {
               </div>
               <p className="text-body-sm text-text-secondary">
                 Tarjeta{' '}
-                <span className="tabular text-text-primary">{formatMoney(resumen.esperado.TARJETA)}</span>{' '}
+                <span className="tabular text-text-primary">
+                  {formatMoney(resumen.esperado.TARJETA)}
+                </span>{' '}
                 · Transferencia{' '}
                 <span className="tabular text-text-primary">
                   {formatMoney(resumen.esperado.TRANSFERENCIA)}
                 </span>{' '}
                 · Total del turno{' '}
-                <span className="tabular text-text-primary">{formatMoney(resumen.esperado.total)}</span>
+                <span className="tabular text-text-primary">
+                  {formatMoney(resumen.esperado.total)}
+                </span>
               </p>
             </div>
           </section>
@@ -1165,7 +1195,9 @@ export function CajasPage() {
               Todo lo que entró y salió de esta caja, del más reciente al más antiguo.
             </p>
           </div>
-          <span className="badge badge-neutral">{formatNumero(movimientos.length)} movimientos</span>
+          <span className="badge badge-neutral">
+            {formatNumero(movimientos.length)} movimientos
+          </span>
         </header>
 
         <div className="overflow-x-auto">
@@ -1216,7 +1248,9 @@ export function CajasPage() {
                           {meta.label}
                         </span>
                       </td>
-                      <td className={`num font-semibold ${esIngreso ? 'text-success' : 'text-danger'}`}>
+                      <td
+                        className={`num font-semibold ${esIngreso ? 'text-success' : 'text-danger'}`}
+                      >
                         {esIngreso
                           ? formatMoney(m.monto, { signo: true })
                           : formatMoney(-Number(m.monto))}
@@ -1230,8 +1264,8 @@ export function CajasPage() {
                   <td colSpan={5} className="p-8 text-center">
                     <p className="text-text-secondary">Aún no hay movimientos en esta caja.</p>
                     <p className="mt-1 text-body-sm text-text-muted">
-                      Usa «Ingreso» o «Egreso» cuando entre o salga efectivo. Los cobros aparecerán aquí
-                      automáticamente.
+                      Usa «Ingreso» o «Egreso» cuando entre o salga efectivo. Los cobros aparecerán
+                      aquí automáticamente.
                     </p>
                   </td>
                 </tr>

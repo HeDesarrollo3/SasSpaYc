@@ -34,6 +34,8 @@ export interface Caja {
   diferencia: number | null;
   estado: EstadoCaja;
   observaciones: string | null;
+  /** Cuenta de efectivo del turno (se guarda al abrir desde 2026-10-03). */
+  cuenta_financiera_id?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +93,8 @@ export interface AperturaCajaInput {
   /** Quién abre la caja. Sin esto no hay responsable del arqueo. */
   colaboradorId?: number;
   observaciones?: string;
+  /** Cuenta de efectivo a la que queda ligado el turno. */
+  cuentaFinancieraId?: number;
 }
 
 export interface MovimientoCajaInput {
@@ -162,6 +166,7 @@ export const CajasService = {
         saldoInicial: input.saldoInicial,
         colaboradorId: input.colaboradorId,
         observaciones: input.observaciones || null,
+        cuentaFinancieraId: input.cuentaFinancieraId,
       }),
     );
     return res.data;
