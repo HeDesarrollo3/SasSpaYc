@@ -41,6 +41,9 @@ const CuentasFinancierasPage = lazy(() =>
 const ClientesPage = lazy(() =>
   import('./pages/ClientesPage').then((m) => ({ default: m.ClientesPage })),
 );
+const CombosPage = lazy(() =>
+  import('./pages/CombosPage').then((m) => ({ default: m.CombosPage })),
+);
 const ReportesPage = lazy(() =>
   import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })),
 );
@@ -181,6 +184,14 @@ export const App: React.FC = () => {
             element={
               <RequireRole roles={['administrador', 'recepcionista', 'cajero']}>
                 <ClientesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="combos"
+            element={
+              <RequireRole roles={['administrador']}>
+                <CombosPage />
               </RequireRole>
             }
           />

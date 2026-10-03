@@ -63,6 +63,15 @@ export interface ResumenReportes {
     }[];
     inactivos: { id: number; nombre: string; ultima_visita: string; dias: number }[];
   };
+  /** 027: combos y promociones vendidos en el periodo. */
+  combos?: {
+    combo_id: number;
+    nombre: string;
+    tipo: 'COMBO' | 'PROMOCION';
+    vendidos: number;
+    ingresos: number;
+    colaboradores: number;
+  }[];
 }
 
 export const ReportesService = {

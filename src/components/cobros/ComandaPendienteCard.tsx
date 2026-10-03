@@ -33,6 +33,8 @@ export type ItemListado = ComandaItem & {
    * `null` sólo si el servicio ya no existe en el catálogo.
    */
   servicio_nombre?: string | null;
+  /** 027: nombre del combo o promoción, si la línea pertenece a uno. */
+  combo_nombre?: string | null;
 };
 
 /**
@@ -106,15 +108,15 @@ export function ComandaPendienteCard({
 
           <ul className="space-y-0.5">
             {items.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-baseline gap-1.5 text-sm text-text-primary"
-              >
+              <li key={item.id} className="flex items-baseline gap-1.5 text-sm text-text-primary">
                 <Sparkles size={12} className="shrink-0 text-accent-from" aria-hidden="true" />
                 <span className="truncate font-semibold">{nombreServicio(item)}</span>
                 <span className="tabular shrink-0 text-xs text-text-muted">
                   ×{formatNumero(item.cantidad)}
                 </span>
+                {item.combo_nombre && (
+                  <span className="badge badge-info shrink-0 text-[11px]">{item.combo_nombre}</span>
+                )}
               </li>
             ))}
             {items.length === 0 && (
@@ -144,9 +146,7 @@ export function ComandaPendienteCard({
 
         {/* ── Importe y acción ── */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border-subtle pt-3 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
-          <span className="tabular text-lg font-bold text-text-primary">
-            {formatMoney(total)}
-          </span>
+          <span className="tabular text-lg font-bold text-text-primary">{formatMoney(total)}</span>
           <button
             type="button"
             className="btn-primary"

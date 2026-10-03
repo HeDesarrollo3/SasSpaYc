@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Users,
   Contact,
+  Gift,
   Cake,
 } from 'lucide-react';
 
@@ -548,6 +549,25 @@ export const ReportesPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </Seccion>
+            )}
+
+            {data.combos && data.combos.length > 0 && (
+              <Seccion titulo="Combos y promociones vendidos" icono={Gift}>
+                <Ranking
+                  filas={data.combos.map((c) => ({
+                    clave: c.combo_id,
+                    nombre: c.nombre,
+                    sub: `${c.tipo === 'COMBO' ? 'Combo' : 'Promoción'} · ${formatNumero(c.vendidos)} ${
+                      c.vendidos === 1 ? 'vez' : 'veces'
+                    } · ${formatNumero(c.colaboradores)} ${
+                      c.colaboradores === 1 ? 'colaborador' : 'colaboradores'
+                    }`,
+                    valor: c.ingresos,
+                    texto: formatMoney(c.ingresos),
+                  }))}
+                  vacio="Ningún combo vendido en el periodo."
+                />
               </Seccion>
             )}
 

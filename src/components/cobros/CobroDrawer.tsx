@@ -538,6 +538,9 @@ export function CobroDrawer({
                 <span className="min-w-0 truncate text-text-secondary">
                   {nombreServicio(item)}
                   <span className="ml-1 text-text-muted">×{formatNumero(item.cantidad)}</span>
+                  {item.combo_nombre && (
+                    <span className="ml-1 text-accent-from">· {item.combo_nombre}</span>
+                  )}
                 </span>
                 <span className="tabular shrink-0 text-text-secondary">
                   {formatMoney(

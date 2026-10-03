@@ -79,6 +79,8 @@ export interface ComandaItem {
   comision_origen: string | null;
   /** La usa el backend para no liquidar dos veces la misma línea. */
   liquidado?: boolean;
+  /** 027: combo o promoción al que pertenece la línea. */
+  combo_id?: number | null;
   notas: string | null;
   created_at?: string;
   extras: ComandaItemExtra[];
@@ -173,6 +175,8 @@ export interface ItemComandaInput {
   servicioId: number;
   /** Sólo servicios de precio variable: valor elegido dentro del rango. */
   precioUnitario?: number;
+  /** 027: combo / promoción vigente. La base pone el precio de su parte y la cantidad. */
+  comboId?: number;
   cantidad?: number;
   /** Para extras con `tipo_precio = por_hora`. */
   horas?: number;
@@ -391,6 +395,7 @@ export const ComandasService = {
         horas: item.horas,
         notas: item.notas,
         precioUnitario: item.precioUnitario,
+        comboId: item.comboId,
         extras: item.extras?.map((extra) => ({
           adicionalId: extra.adicionalId,
           descripcion: extra.descripcion,

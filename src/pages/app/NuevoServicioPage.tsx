@@ -22,6 +22,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronDown,
+  Gift,
   Info,
   LoaderCircle,
   Send,
@@ -32,6 +33,7 @@ import { toast } from 'sonner';
 
 import { CatalogoService, type ItemCatalogo } from '../../services/catalog.service';
 import { ClientesService, type Cliente } from '../../services/clientes.service';
+import { CombosService, lineaDelServicio } from '../../services/combos.service';
 import {
   ComandasService,
   comandasKeys,
@@ -109,6 +111,8 @@ export function NuevoServicioPage() {
   const [nuevoExtraValor, setNuevoExtraValor] = useState('');
   /** Precio elegido en servicios de precio variable (texto del input). */
   const [precioVariable, setPrecioVariable] = useState('');
+  /** 027: combo o promoción vigente elegido para este servicio. */
+  const [comboId, setComboId] = useState<number | null>(null);
   const [minutosAtras, setMinutosAtras] = useState(0);
 
   const [observaciones, setObservaciones] = useState('');
@@ -183,16 +187,37 @@ export function NuevoServicioPage() {
   const servicioElegido = servicios.find((s) => s.id === servicioId);
   const extrasElegidos = extrasCatalogo.filter((e) => extrasMarcados.includes(e.id));
 
+  // ── Combos y promociones vigentes que incluyen el servicio (027) ──────────
+  const combosVigentes = useQuery({
+    queryKey: ['combos', 'vigentes'],
+    queryFn: () => CombosService.listar(true),
+    staleTime: 5 * 60_000,
+  });
+  const combosDelServicio = useMemo(
+    () =>
+      servicioElegido
+        ? (combosVigentes.data ?? []).filter((c) => lineaDelServicio(c, servicioElegido.id))
+        : [],
+    [combosVigentes.data, servicioElegido],
+  );
+  const comboElegido = combosDelServicio.find((c) => c.id === comboId);
+  const lineaCombo =
+    comboElegido && servicioElegido ? lineaDelServicio(comboElegido, servicioElegido.id) : null;
+  const cantidadPrincipal = lineaCombo?.cantidad ?? 1;
+
   // Precio variable: el servicio trae un rango y el colaborador elige el valor.
   const tieneRango =
     servicioElegido?.precio_min !== null &&
     servicioElegido?.precio_min !== undefined &&
     servicioElegido?.precio_max !== null &&
     servicioElegido?.precio_max !== undefined;
-  const precioElegido = tieneRango
-    ? Number(precioVariable.replace(/[^\d]/g, '')) || Number(servicioElegido?.precio ?? 0)
-    : Number(servicioElegido?.precio ?? 0);
+  const precioElegido = lineaCombo
+    ? lineaCombo.precio_referencial / lineaCombo.cantidad
+    : tieneRango
+      ? Number(precioVariable.replace(/[^\d]/g, '')) || Number(servicioElegido?.precio ?? 0)
+      : Number(servicioElegido?.precio ?? 0);
   const precioFueraDeRango =
+    !lineaCombo &&
     tieneRango &&
     (precioElegido < Number(servicioElegido?.precio_min) ||
       precioElegido > Number(servicioElegido?.precio_max));
@@ -230,12 +255,12 @@ export function NuevoServicioPage() {
   const otrosServicios = serviciosMismaArea.filter((s) => otrosServiciosIds.includes(s.id));
 
   const totalEstimado =
-    precioElegido +
+    precioElegido * cantidadPrincipal +
     totalExtrasManuales +
     extrasElegidos.reduce((acc, e) => acc + Number(e.precio ?? 0), 0) +
     otrosServicios.reduce((acc, s) => acc + Number(s.precio ?? 0), 0);
 
-  const comisionPrincipal = estimarComisionLinea(servicioConPrecio, 1, [
+  const comisionPrincipal = estimarComisionLinea(servicioConPrecio, cantidadPrincipal, [
     ...extrasElegidos.map((e) => ({
       monto_unitario: Number(e.precio ?? 0),
       cantidad: 1,
@@ -321,8 +346,9 @@ export function NuevoServicioPage() {
       items: [
         {
           servicioId: servicioElegido.id,
-          cantidad: 1,
-          precioUnitario: tieneRango ? precioElegido : undefined,
+          cantidad: cantidadPrincipal,
+          precioUnitario: !lineaCombo && tieneRango ? precioElegido : undefined,
+          comboId: comboElegido?.id,
           extras: [
             ...extrasElegidos.map((e) => ({ adicionalId: e.id, cantidad: 1 })),
             ...extrasManuales.map((e) => ({
@@ -537,6 +563,61 @@ export function NuevoServicioPage() {
             )}
           </section>
 
+          {/* Combo o promoción del mes (027) */}
+          {combosDelServicio.length > 0 && servicioElegido && (
+            <section className="space-y-3">
+              <h2 className="flex items-center gap-2 text-h2 text-text-primary">
+                <Gift size={18} className="text-accent-from" aria-hidden="true" />
+                ¿Es parte de un combo o promoción?
+              </h2>
+              <ul role="radiogroup" aria-label="Combos y promociones" className="space-y-2">
+                {[null, ...combosDelServicio].map((c) => {
+                  const marcado = (c?.id ?? null) === (comboElegido?.id ?? null);
+                  const linea = c ? lineaDelServicio(c, servicioElegido.id) : null;
+                  const otros = c
+                    ? c.detalles.filter((d) => d.servicio_id !== servicioElegido.id)
+                    : [];
+                  return (
+                    <li key={c?.id ?? 'ninguno'}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={marcado}
+                        onClick={() => setComboId(c?.id ?? null)}
+                        className={`w-full rounded-sm border px-3 py-2.5 text-left ${
+                          marcado
+                            ? 'border-accent-from bg-accent-from/10'
+                            : 'border-border-subtle bg-surface-card'
+                        }`}
+                      >
+                        {c && linea ? (
+                          <>
+                            <span className="flex items-baseline justify-between gap-3">
+                              <span className="font-semibold text-text-primary">{c.nombre}</span>
+                              <span className="tabular shrink-0 text-text-primary">
+                                Tu parte {formatMoney(linea.precio_referencial)}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-body-sm text-text-secondary">
+                              {c.tipo === 'PROMOCION'
+                                ? `${linea.cantidad} × ${servicioElegido.nombre} por ${formatMoney(c.precio)}`
+                                : `Combo de ${formatMoney(c.precio)}` +
+                                  (otros.length
+                                    ? ` · ${otros.map((d) => d.servicio_nombre).join(', ')} lo registra quien lo haga`
+                                    : '')}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-text-primary">No, precio normal</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
           {/* Otro servicio de la misma área */}
           {serviciosMismaArea.length > 0 && (
             <section className="space-y-3">
@@ -580,7 +661,7 @@ export function NuevoServicioPage() {
           )}
 
           {/* Precio variable (p. ej. cepillado según el largo) */}
-          {tieneRango && servicioElegido && (
+          {tieneRango && servicioElegido && !lineaCombo && (
             <section className="space-y-2">
               <h2 className="text-h2 text-text-primary">Precio del servicio</h2>
               <label htmlFor="precio-variable" className="label">
@@ -759,9 +840,17 @@ export function NuevoServicioPage() {
 
             <ul className="mt-3 space-y-2 text-body">
               <li className="flex items-start justify-between gap-3">
-                <span className="text-text-primary">{servicioElegido.nombre}</span>
+                <span className="text-text-primary">
+                  {servicioElegido.nombre}
+                  {cantidadPrincipal > 1 ? ` ×${cantidadPrincipal}` : ''}
+                  {comboElegido && (
+                    <span className="block text-body-sm text-accent-from">
+                      {comboElegido.nombre}
+                    </span>
+                  )}
+                </span>
                 <span className="tabular shrink-0 text-text-primary">
-                  {formatMoney(precioElegido)}
+                  {formatMoney(precioElegido * cantidadPrincipal)}
                 </span>
               </li>
               {otrosServicios.map((s) => (

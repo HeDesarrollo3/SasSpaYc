@@ -18,6 +18,7 @@ import {
   Landmark,
   BarChart3,
   Contact,
+  Gift,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
@@ -72,6 +73,12 @@ const MENU_ITEMS: MenuItem[] = [
     label: 'Reportes',
     path: '/reportes',
     icon: BarChart3,
+    roles: ['administrador'],
+  },
+  {
+    label: 'Combos y promos',
+    path: '/combos',
+    icon: Gift,
     roles: ['administrador'],
   },
   {
