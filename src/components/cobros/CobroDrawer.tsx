@@ -20,6 +20,8 @@
 // necesita para dar el cambio en el mostrador.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ClienteCobro, type ClienteElegido } from './ClienteCobro';
+import { ClientesService } from '../../services/clientes.service';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -337,6 +339,8 @@ export function CobroDrawer({
   const [idempotencyKey] = useState(() => nuevaIdempotencyKey());
   // Cliente referido (migración 023): lo marca el colaborador, recepción lo confirma o corrige.
   const [referido, setReferido] = useState<boolean>(comanda.cliente_referido ?? false);
+  // Cliente que recepción guarda o vincula al cobrar (migración 025).
+  const [clienteElegido, setClienteElegido] = useState<ClienteElegido>(null);
 
   const subtotal = totalComanda(comanda);
   const items = comanda.items ?? [];
@@ -394,7 +398,19 @@ export function CobroDrawer({
   const cuentasFinancieras = cuentas.data ?? [];
 
   const cobrar = useMutation({
-    mutationFn: (values: CobroForm) => {
+    mutationFn: async (values: CobroForm) => {
+      // 1. Si recepción completó los datos de un cliente nuevo, se crea primero.
+      let clienteId: number | undefined;
+      if (clienteElegido?.tipo === 'existente') clienteId = clienteElegido.id;
+      if (clienteElegido?.tipo === 'nuevo') {
+        const creado = await ClientesService.guardar({
+          nombre: clienteElegido.nombre,
+          telefono: clienteElegido.telefono,
+          fecha_nacimiento: clienteElegido.fecha_nacimiento || null,
+          autoriza_datos: clienteElegido.autoriza_datos,
+        });
+        clienteId = creado.cliente_id;
+      }
       const payload: Record<string, unknown> = {
         forma_pago: values.formaPago,
         cuenta_financiera_id: Number(values.cuentaFinancieraId),
@@ -411,6 +427,7 @@ export function CobroDrawer({
       const notas = values.notas.trim();
       if (notas) payload.notas = notas;
       if (referido !== (comanda.cliente_referido ?? false)) payload.cliente_referido = referido;
+      if (clienteId) payload.cliente_id = clienteId;
 
       return api.post<unknown, ApiSuccess<CobroConfirmado>>(
         `/comandas/${comanda.id}/confirmar`,
@@ -428,6 +445,7 @@ export function CobroDrawer({
       });
       // La raíz invalida la bandeja, el contador del sidebar y los detalles.
       qc.invalidateQueries({ queryKey: comandasKeys.todas });
+      qc.invalidateQueries({ queryKey: ['clientes'] });
       onClose();
     },
     onError: (err) => {
@@ -556,6 +574,13 @@ export function CobroDrawer({
             </div>
           )}
         </section>
+
+        {/* ── Cliente: guardar o vincular (migración 025) ── */}
+        <ClienteCobro
+          clienteIdActual={comanda.cliente_id}
+          nombreEscrito={comanda.cliente_nombre ?? ''}
+          onCambio={setClienteElegido}
+        />
 
         {/* ── Cliente referido (migración 023) ── */}
         <label className="panel flex items-start gap-3 p-4">

@@ -45,6 +45,24 @@ export interface ResumenReportes {
     ticket_promedio: number;
   }[];
   formas_pago: { forma: string; monto: number }[];
+  clientes?: {
+    registrados: number;
+    ventas_con_cliente: number;
+    ventas_total: number;
+    atendidos: number;
+    nuevos: number;
+    recurrentes: number;
+    top: { id: number; nombre: string; visitas: number; ingresos: number }[];
+    cumpleanos: {
+      id: number;
+      nombre: string;
+      telefono: string | null;
+      fecha: string;
+      en_dias: number;
+      autoriza_datos: boolean;
+    }[];
+    inactivos: { id: number; nombre: string; ultima_visita: string; dias: number }[];
+  };
 }
 
 export const ReportesService = {

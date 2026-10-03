@@ -17,6 +17,7 @@ import {
   X,
   Landmark,
   BarChart3,
+  Contact,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
@@ -52,6 +53,12 @@ const MENU_ITEMS: MenuItem[] = [
     path: '/caja',
     icon: DollarSign,
     roles: ['administrador', 'cajero'],
+  },
+  {
+    label: 'Clientes',
+    path: '/clientes',
+    icon: Contact,
+    roles: ['administrador', 'recepcionista', 'cajero'],
   },
   {
     label: 'Cuentas / Créditos',

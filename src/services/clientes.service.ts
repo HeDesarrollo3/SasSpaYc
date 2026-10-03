@@ -30,12 +30,50 @@ export interface Cliente {
   telefono: string | null;
   notas: string | null;
   created_at: string;
+  /** Migración 025 y columnas ya existentes. */
+  fecha_nacimiento?: string | null;
+  email?: string | null;
+  autoriza_datos?: boolean;
+  autoriza_datos_at?: string | null;
+  activo?: boolean;
+}
+
+/** Datos del formulario de cliente (alta o edición). */
+export interface DatosCliente {
+  nombre: string;
+  telefono?: string;
+  fecha_nacimiento?: string | null;
+  email?: string | null;
+  autoriza_datos?: boolean;
+  notas?: string;
+}
+
+/** `GET /catalogo/clientes/:id/ficha`. */
+export interface FichaCliente {
+  cliente: Cliente;
+  resumen: {
+    visitas: number;
+    gasto_total: number;
+    ticket_promedio: number;
+    primera_visita: string | null;
+    ultima_visita: string | null;
+    dias_entre_visitas: number | null;
+  };
+  servicios: { nombre: string; veces: number; gasto: number }[];
+  colaboradores: { nombre: string; visitas: number }[];
+  ultimas_visitas: {
+    venta_id: number;
+    fecha_hora: string;
+    total: number;
+    servicios: string[];
+    colaborador: string | null;
+  }[];
 }
 
 export interface CrearClienteDto {
   nombre: string;
-  /** Obligatorio en el backend (`p_tipo_cliente`). */
-  tipo_cliente: string;
+  /** Por defecto `SPA` en el backend. */
+  tipo_cliente?: string;
   telefono?: string;
   notas?: string;
 }
@@ -57,10 +95,7 @@ const LIMIT_MAX = 100;
  * `data`.
  */
 export const ClientesService = {
-  listar: async (
-    page = 1,
-    limit = 50,
-  ): Promise<{ data: Cliente[]; meta?: ClientesMeta }> => {
+  listar: async (page = 1, limit = 50): Promise<{ data: Cliente[]; meta?: ClientesMeta }> => {
     const pagina = Math.max(1, Math.trunc(page));
     const limite = Math.min(Math.max(1, Math.trunc(limit)), LIMIT_MAX);
 
@@ -80,6 +115,69 @@ export const ClientesService = {
         telefono: dto.telefono ?? null,
         notas: dto.notas ?? null,
       },
+    );
+    return response.data;
+  },
+
+  /** Búsqueda paginada por nombre o teléfono (sección Clientes). */
+  buscar: async (
+    q: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Cliente[]; meta?: ClientesMeta }> => {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(Math.min(limit, LIMIT_MAX)),
+      sort: 'nombre',
+    });
+    if (q.trim()) qs.set('q', q.trim());
+    const response = await api.get<unknown, ApiSuccess<Cliente[]>>(`/catalogo/clientes?${qs}`);
+    return { data: response.data ?? [], meta: response.meta };
+  },
+
+  /** Cliente con ese teléfono (compara sólo dígitos) o `null`. */
+  porTelefono: async (telefono: string): Promise<Cliente | null> => {
+    const digitos = telefono.replace(/\D/g, '');
+    if (digitos.length < 7) return null;
+    const response = await api.get<unknown, ApiSuccess<Cliente | null>>(
+      `/catalogo/clientes/por-telefono/${digitos}`,
+    );
+    return response.data ?? null;
+  },
+
+  /** Alta completa (nombre, teléfono, nacimiento, autorización). */
+  guardar: async (datos: DatosCliente): Promise<{ cliente_id: number }> => {
+    const response = await api.post<unknown, ApiSuccess<{ cliente_id: number }>>(
+      '/catalogo/clientes',
+      {
+        nombre: datos.nombre.trim(),
+        telefono: datos.telefono?.trim() || undefined,
+        fecha_nacimiento: datos.fecha_nacimiento || undefined,
+        email: datos.email || undefined,
+        autoriza_datos: datos.autoriza_datos ?? false,
+        notas: datos.notas?.trim() || undefined,
+      },
+    );
+    return response.data;
+  },
+
+  actualizar: async (
+    id: number,
+    datos: Partial<DatosCliente> & { activo?: boolean },
+  ): Promise<{ cliente_id: number; actualizado: boolean }> => {
+    const response = await api.patch<
+      unknown,
+      ApiSuccess<{ cliente_id: number; actualizado: boolean }>
+    >(`/catalogo/clientes/${id}`, {
+      ...datos,
+      fecha_nacimiento: datos.fecha_nacimiento === '' ? null : datos.fecha_nacimiento,
+    });
+    return response.data;
+  },
+
+  ficha: async (id: number): Promise<FichaCliente> => {
+    const response = await api.get<unknown, ApiSuccess<FichaCliente>>(
+      `/catalogo/clientes/${id}/ficha`,
     );
     return response.data;
   },

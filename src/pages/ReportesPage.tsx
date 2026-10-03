@@ -18,6 +18,8 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  Contact,
+  Cake,
 } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
@@ -457,6 +459,97 @@ export const ReportesPage: React.FC = () => {
                 </>
               )}
             </Seccion>
+
+            {data.clientes && (
+              <Seccion titulo="Clientes" icono={Contact}>
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    ['Atendidos con ficha', formatNumero(data.clientes.atendidos)],
+                    ['Nuevos', formatNumero(data.clientes.nuevos)],
+                    ['Volvieron', formatNumero(data.clientes.recurrentes)],
+                    [
+                      'Ventas con cliente identificado',
+                      data.clientes.ventas_total
+                        ? `${Math.round((data.clientes.ventas_con_cliente / data.clientes.ventas_total) * 100)} %`
+                        : '—',
+                    ],
+                  ].map(([t, v]) => (
+                    <div key={t} className="rounded-md border border-border-subtle p-3">
+                      <p className="text-xs text-text-muted">{t}</p>
+                      <p className="tabular text-lg font-semibold text-text-primary">{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <div>
+                    <h3 className="mb-3 text-xs font-semibold text-text-secondary">
+                      Mejores clientes del periodo
+                    </h3>
+                    <Ranking
+                      filas={data.clientes.top.map((c) => ({
+                        clave: c.id,
+                        nombre: c.nombre,
+                        sub: `${formatNumero(c.visitas)} ${c.visitas === 1 ? 'visita' : 'visitas'}`,
+                        valor: c.ingresos,
+                        texto: formatMoney(c.ingresos),
+                      }))}
+                      vacio="Aún no hay ventas con cliente guardado. Se guardan al cobrar."
+                    />
+                  </div>
+                  <div>
+                    <h3 className="mb-3 flex items-center gap-1 text-xs font-semibold text-text-secondary">
+                      <Cake size={13} aria-hidden="true" /> Cumpleaños esta semana
+                    </h3>
+                    {data.clientes.cumpleanos.length === 0 ? (
+                      <p className="text-body-sm text-text-muted">
+                        Nadie cumple años en los próximos 7 días.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2 text-body-sm">
+                        {data.clientes.cumpleanos.map((c) => (
+                          <li key={c.id} className="flex justify-between gap-2">
+                            <span className="text-text-primary">
+                              {c.nombre}
+                              {!c.autoriza_datos && (
+                                <span className="ml-1 text-xs text-text-muted">
+                                  (sin autorización)
+                                </span>
+                              )}
+                            </span>
+                            <span className="shrink-0 text-text-secondary">
+                              {c.en_dias === 0
+                                ? '¡Hoy!'
+                                : c.en_dias === 1
+                                  ? 'Mañana'
+                                  : `En ${c.en_dias} días`}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="mb-3 text-xs font-semibold text-text-secondary">
+                      Hace más de 60 días que no vienen
+                    </h3>
+                    {data.clientes.inactivos.length === 0 ? (
+                      <p className="text-body-sm text-text-muted">Ningún cliente inactivo.</p>
+                    ) : (
+                      <ul className="space-y-2 text-body-sm">
+                        {data.clientes.inactivos.map((c) => (
+                          <li key={c.id} className="flex justify-between gap-2">
+                            <span className="text-text-primary">{c.nombre}</span>
+                            <span className="tabular shrink-0 text-text-secondary">
+                              {c.dias} días
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </Seccion>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-2">
               <Seccion titulo="Horas con más ventas" icono={Clock}>
