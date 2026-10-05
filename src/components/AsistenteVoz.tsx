@@ -152,12 +152,22 @@ function prepararTexto(texto: string): string[] {
     .replace(/\bCMD-\d{8}-0*(\d+)\b/g, 'servicio $1')
     .replace(/\s·\s/g, ', ')
     .replace(/«|»/g, '');
-  return (
-    limpio
-      .match(/[^.?!;]+[.?!;]?/g)
-      ?.map((f) => f.trim())
-      .filter(Boolean) ?? [limpio]
-  );
+  const frases = limpio
+    .match(/[^.?!;]+[.?!;]?/g)
+    ?.map((f) => f.trim())
+    .filter(Boolean) ?? [limpio];
+  // Se agrupan en bloques de hasta ~180 caracteres: cada bloque es una sola
+  // locución. Partir en frases sueltas hacía que las cortas («¿Confirmo?»)
+  // sonaran más fuertes que el resto, porque el navegador ajusta el volumen y la
+  // entonación de cada locución por separado. Bloques muy largos se cortan en
+  // algunos navegadores, por eso no se manda todo de una.
+  const bloques: string[] = [];
+  for (const f of frases) {
+    const ultimo = bloques[bloques.length - 1];
+    if (ultimo && ultimo.length + f.length < 180) bloques[bloques.length - 1] = `${ultimo} ${f}`;
+    else bloques.push(f);
+  }
+  return bloques;
 }
 
 function leerTexto(clave: string, defecto: string): string {
@@ -285,27 +295,46 @@ export function AsistenteVoz() {
   }, [ahora, vence, accion]);
 
   const decir = useCallback(
-    (texto: string, luegoEscuchar = false) => {
+    (texto: string, luegoEscuchar = false, forzar = false) => {
       const sintesis = window.speechSynthesis;
-      if (!hablar || !sintesis) {
+      if ((!hablar && !forzar) || !sintesis) {
         if (luegoEscuchar) escucharTrasHablar.current = true;
         return;
       }
       sintesis.cancel();
-      const v = elegirVoz(genero, vozNombre);
-      const frases = prepararTexto(texto);
-      frases.forEach((frase, i) => {
-        const u = new SpeechSynthesisUtterance(frase);
-        if (v) u.voice = v;
-        u.lang = v?.lang ?? 'es-CO';
-        // Las voces naturales ya tienen buen ritmo; las clásicas suenan mejor un poco más lentas.
-        u.rate = velocidad * (v && esNatural(v) ? 1 : 0.95);
-        u.pitch = 1;
-        if (luegoEscuchar && i === frases.length - 1) {
-          u.onend = () => (escucharTrasHablar.current = true);
-        }
-        sintesis.speak(u);
-      });
+      const hablarCon = () => {
+        // Siempre la MISMA voz: si las voces aún no habían cargado, la primera
+        // respuesta salía con la voz por defecto (otra voz, otro volumen).
+        const v = elegirVoz(genero, vozNombre);
+        const bloques = prepararTexto(texto);
+        bloques.forEach((bloque, i) => {
+          const u = new SpeechSynthesisUtterance(bloque);
+          if (v) u.voice = v;
+          u.lang = v?.lang ?? 'es-CO';
+          u.volume = 1;
+          u.pitch = 1;
+          // Las voces naturales ya tienen buen ritmo; las clásicas suenan mejor un poco más lentas.
+          u.rate = velocidad * (v && esNatural(v) ? 1 : 0.95);
+          if (luegoEscuchar && i === bloques.length - 1) {
+            u.onend = () => (escucharTrasHablar.current = true);
+          }
+          sintesis.speak(u);
+        });
+      };
+      if (vocesEspanol().length) {
+        hablarCon();
+      } else {
+        // Primera vez: se espera a que el navegador cargue sus voces (máx. 1,5 s).
+        let hecho = false;
+        const una = () => {
+          if (hecho) return;
+          hecho = true;
+          sintesis.removeEventListener?.('voiceschanged', una);
+          hablarCon();
+        };
+        sintesis.addEventListener?.('voiceschanged', una);
+        setTimeout(una, 1500);
+      }
     },
     [hablar, genero, vozNombre, velocidad],
   );
@@ -685,15 +714,13 @@ export function AsistenteVoz() {
                 <button
                   type="button"
                   className="btn-ghost h-8 min-h-0 px-2 text-xs"
-                  onClick={() => {
-                    const forzar = !hablar;
-                    if (forzar) setHablar(true);
-                    setTimeout(
-                      () =>
-                        decir('Hola, soy tu asistente. Hoy llevan 350.000 pesos en cuatro ventas.'),
-                      forzar ? 50 : 0,
-                    );
-                  }}
+                  onClick={() =>
+                    decir(
+                      'Hola, soy tu asistente. Hoy llevan 350.000 pesos en cuatro ventas. ¿Te ayudo con algo más?',
+                      false,
+                      true,
+                    )
+                  }
                 >
                   <Play size={14} aria-hidden="true" /> Probar
                 </button>
