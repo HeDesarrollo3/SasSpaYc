@@ -9,10 +9,25 @@
 //     persona dice «sí» o toca «Confirmar» (lo verifica el servidor).
 //   · Texto → voz: `speechSynthesis` del navegador.
 // Si el navegador no tiene reconocimiento de voz, se puede escribir la orden.
+//   · Manos libres (opcional): el navegador escucha en segundo plano y se activa
+//     al oír la palabra clave («asistente» por defecto). «Asistente, ¿qué falta
+//     por cobrar?» va directo; sólo «asistente» responde «Dime» y escucha.
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, Mic, MicOff, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import {
+  Check,
+  Ear,
+  EarOff,
+  Loader2,
+  Mic,
+  MicOff,
+  Send,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
 
 import {
   AsistenteService,
@@ -75,6 +90,63 @@ function vozEspanol(): SpeechSynthesisVoice | null {
   return null;
 }
 
+function leerTexto(clave: string, defecto: string): string {
+  try {
+    return localStorage.getItem(clave) || defecto;
+  } catch {
+    return defecto;
+  }
+}
+function guardarTexto(clave: string, valor: string) {
+  try {
+    localStorage.setItem(clave, valor);
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+/** Minúsculas y sin tildes, para comparar la palabra clave. */
+function plano(t: string): string {
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¿?¡!.,;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Busca la palabra clave en lo transcrito y devuelve lo que se dijo después
+ * («asistente qué falta por cobrar» → «qué falta por cobrar»), o `null`.
+ * Para «asistente» acepta lo que suele transcribir mal: «a sistente», «asistenta».
+ */
+export function buscarPalabraClave(texto: string, palabra: string): string | null {
+  const t = plano(texto);
+  const p = plano(palabra);
+  if (!p) return null;
+  const variantes =
+    p === 'asistente'
+      ? ['asistente', 'a sistente', 'asistenta', 'asistentes', 'asistent', 'sistente']
+      : [p];
+  for (const v of variantes) {
+    const i = t.indexOf(v);
+    if (i >= 0 && (i === 0 || t[i - 1] === ' ')) {
+      const original = texto.trim();
+      // Se recorta sobre el texto original por número de palabras.
+      const palabrasAntes = t.slice(0, i + v.length).split(' ').length;
+      return original
+        .split(/\s+/)
+        .slice(palabrasAntes)
+        .join(' ')
+        .replace(/^[,.\s]+/, '');
+    }
+  }
+  return null;
+}
+
+const SALUDOS = ['Dime.', 'Te escucho.', '¿En qué te ayudo?', 'Sí, dime.'];
+
 type Turno =
   { quien: 'yo'; texto: string } | { quien: 'asistente'; r: RespuestaAsistente; error?: boolean };
 
@@ -93,11 +165,20 @@ export function AsistenteVoz() {
   const [ahora, setAhora] = useState(() => Date.now());
   const [escrito, setEscrito] = useState('');
   const [hablar, setHablar] = useState(() => leerPreferencia('asistente_hablar', true));
+  const [manosLibres, setManosLibres] = useState(() =>
+    leerPreferencia('asistente_manos_libres', false),
+  );
+  const [palabra, setPalabra] = useState(() => leerTexto('asistente_palabra', 'asistente'));
+  const [vigilando, setVigilando] = useState(false);
 
   const reconocedor = useRef<Reconocedor | null>(null);
   const finalRef = useRef('');
   const finDeLista = useRef<HTMLDivElement | null>(null);
   const escucharTrasHablar = useRef(false);
+  // Estado vivo para el vigía (sus callbacks no ven el estado de React actualizado).
+  const vigia = useRef<Reconocedor | null>(null);
+  const ocupado = useRef({ escuchando: false, pensando: false });
+  ocupado.current = { escuchando, pensando };
 
   useEffect(() => {
     finDeLista.current?.scrollIntoView({ block: 'end' });
@@ -179,6 +260,9 @@ export function AsistenteVoz() {
   const escuchar = useCallback(() => {
     if (!Voz || escuchando) return;
     window.speechSynthesis?.cancel();
+    vigia.current?.abort();
+    vigia.current = null;
+    setVigilando(false);
     const rec = new Voz();
     rec.lang = 'es-CO';
     rec.interimResults = true;
@@ -235,6 +319,102 @@ export function AsistenteVoz() {
     return () => clearInterval(t);
   }, [abierto, Voz, escuchar]);
 
+  // ── Manos libres: vigía que espera la palabra clave ─────────────────────
+  const activarPorVoz = useCallback(
+    (resto: string) => {
+      setAbierto(true);
+      if (resto.trim().split(/\s+/).length >= 2) {
+        enviarTexto(resto);
+      } else {
+        const saludo = SALUDOS[Math.floor(Math.random() * SALUDOS.length)];
+        setTurnos((t) => [...t.slice(-12), { quien: 'asistente', r: { respuesta: saludo } }]);
+        decir(saludo, true);
+      }
+    },
+    [enviarTexto, decir],
+  );
+
+  useEffect(() => {
+    if (!manosLibres || !Voz) {
+      vigia.current?.abort();
+      vigia.current = null;
+      setVigilando(false);
+      return;
+    }
+    let vivo = true;
+    const arrancar = () => {
+      if (!vivo || vigia.current) return;
+      const libre =
+        !ocupado.current.escuchando &&
+        !ocupado.current.pensando &&
+        !window.speechSynthesis?.speaking &&
+        !escucharTrasHablar.current &&
+        document.visibilityState === 'visible';
+      if (!libre) return;
+      const rec = new Voz();
+      rec.lang = 'es-CO';
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.maxAlternatives = 1;
+      let disparado = false;
+      rec.onresult = (e) => {
+        if (disparado) return;
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          const resto = buscarPalabraClave(r[0].transcript, palabra);
+          if (resto === null) continue;
+          // Con la palabra sola se activa ya; si viene una orden, se espera a
+          // que termine la frase para no cortarla.
+          if (!r.isFinal && resto.trim()) continue;
+          disparado = true;
+          rec.abort();
+          vigia.current = null;
+          setVigilando(false);
+          activarPorVoz(resto);
+          return;
+        }
+      };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          setManosLibres(false);
+          guardarPreferencia('asistente_manos_libres', false);
+        }
+      };
+      rec.onend = () => {
+        if (vigia.current === rec) vigia.current = null;
+        setVigilando(false);
+      };
+      vigia.current = rec;
+      try {
+        rec.start();
+        setVigilando(true);
+      } catch {
+        vigia.current = null;
+      }
+    };
+    // Chrome corta la escucha continua cada cierto tiempo: se reanuda sola.
+    const t = setInterval(arrancar, 700);
+    arrancar();
+    return () => {
+      vivo = false;
+      clearInterval(t);
+      vigia.current?.abort();
+      vigia.current = null;
+      setVigilando(false);
+    };
+  }, [manosLibres, Voz, palabra, activarPorVoz]);
+
+  const alternarManosLibres = () => {
+    const nuevo = !manosLibres;
+    setManosLibres(nuevo);
+    guardarPreferencia('asistente_manos_libres', nuevo);
+    const msg = nuevo
+      ? `Manos libres activado. Di «${palabra}» y luego tu orden.`
+      : 'Manos libres desactivado.';
+    setTurnos((t) => [...t.slice(-12), { quien: 'asistente', r: { respuesta: msg } }]);
+    decir(msg);
+  };
+
   // Al cerrar el panel se calla y deja de escuchar.
   useEffect(() => {
     if (abierto) return;
@@ -284,6 +464,18 @@ export function AsistenteVoz() {
               Asistente
             </h2>
             <div className="flex gap-1">
+              {Voz && (
+                <button
+                  type="button"
+                  className={`btn-icon ${manosLibres ? 'text-accent-from' : ''}`}
+                  onClick={alternarManosLibres}
+                  aria-pressed={manosLibres}
+                  aria-label={manosLibres ? 'Desactivar manos libres' : 'Activar manos libres'}
+                  title={manosLibres ? `Manos libres: di «${palabra}»` : 'Activar manos libres'}
+                >
+                  {manosLibres ? <Ear size={16} /> : <EarOff size={16} />}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-icon"
@@ -303,6 +495,29 @@ export function AsistenteVoz() {
               </button>
             </div>
           </header>
+
+          {manosLibres && (
+            <div className="flex items-center gap-2 border-b border-border-subtle bg-accent-from/5 px-4 py-2 text-xs text-text-secondary">
+              <span
+                className={`size-2 shrink-0 rounded-full ${vigilando ? 'animate-pulse bg-accent-from' : 'bg-border-strong'}`}
+                aria-hidden="true"
+              />
+              <label htmlFor="asistente-palabra" className="shrink-0">
+                Se activa al decir
+              </label>
+              <input
+                id="asistente-palabra"
+                className="input h-8 min-h-0 flex-1 px-2 py-1 text-xs"
+                value={palabra}
+                onChange={(e) => setPalabra(e.target.value)}
+                onBlur={() => {
+                  const limpia = palabra.trim() || 'asistente';
+                  setPalabra(limpia);
+                  guardarTexto('asistente_palabra', limpia);
+                }}
+              />
+            </div>
+          )}
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
             {turnos.length === 0 && !parcial && (
@@ -478,7 +693,7 @@ export function AsistenteVoz() {
               : 'Abrir asistente de voz'
         }
         title="Asistente de voz"
-        className={`flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-transform active:scale-95 ${
+        className={`relative flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-transform active:scale-95 ${
           escuchando
             ? 'animate-pulse bg-danger-text text-white'
             : 'bg-accent-from text-on-accent hover:opacity-90'
@@ -490,6 +705,13 @@ export function AsistenteVoz() {
           <Mic size={18} aria-hidden="true" />
         )}
         <span className="hidden sm:inline">{escuchando ? 'Escuchando' : 'Asistente'}</span>
+        {vigilando && !escuchando && (
+          <span
+            className="absolute -top-0.5 -right-0.5 size-3 rounded-full border-2 border-surface-card bg-success-text"
+            title={`Manos libres: di «${palabra}»`}
+            aria-hidden="true"
+          />
+        )}
       </button>
     </>
   );
