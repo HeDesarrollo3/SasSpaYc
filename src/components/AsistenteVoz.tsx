@@ -22,7 +22,9 @@ import {
   Loader2,
   Mic,
   MicOff,
+  Play,
   Send,
+  Settings2,
   Sparkles,
   Volume2,
   VolumeX,
@@ -77,17 +79,85 @@ function guardarPreferencia(clave: string, valor: boolean) {
   }
 }
 
-/** Voz en español, preferiblemente latinoamericana. */
-function vozEspanol(): SpeechSynthesisVoice | null {
-  const voces = window.speechSynthesis?.getVoices() ?? [];
-  const orden = ['es-CO', 'es-MX', 'es-US', 'es-419', 'es-ES', 'es'];
-  for (const lang of orden) {
-    const v = voces.find((x) =>
-      x.lang.replace('_', '-').toLowerCase().startsWith(lang.toLowerCase()),
-    );
-    if (v) return v;
-  }
+export type Genero = 'femenina' | 'masculina';
+
+/** Nombres de voces conocidas (Microsoft Edge, Windows, Google, Apple) por género. */
+const FEMENINAS =
+  /salome|dalia|elvira|paloma|helena|laura|sabina|paulina|monica|elena|camila|ximena|larissa|renata|beatriz|andrea|triana|abril|lia\b|vera|irene|esperanza|marisol|carlota|valentina|catalina|estrella|elsa|belkys|tatiana|karla|sofia|marta|lupe|penelope|conchita|mia\b|google espa/i;
+const MASCULINAS =
+  /gonzalo|jorge|alvaro|pablo|raul|gerardo|tomas|alonso|dario|emilio|arnau|saul|teo\b|diego|andres|carlos|juan|federico|liberto|cecilio|nil\b|yago|luciano|sebastian|mateo|alex|enrique|miguel|rodrigo|manuel|victor|jose/i;
+
+export function generoDeVoz(v: SpeechSynthesisVoice): Genero | null {
+  if (FEMENINAS.test(v.name)) return 'femenina';
+  if (MASCULINAS.test(v.name)) return 'masculina';
   return null;
+}
+
+/** Las voces «Natural» / «Online» de Microsoft Edge suenan mucho más humanas. */
+export function esNatural(v: SpeechSynthesisVoice): boolean {
+  return /natural|online|neural|premium|enhanced/i.test(v.name);
+}
+
+/** Voces en español ordenadas: naturales primero, luego Colombia y Latinoamérica. */
+export function vocesEspanol(): SpeechSynthesisVoice[] {
+  const voces = (window.speechSynthesis?.getVoices() ?? []).filter((v) =>
+    v.lang.toLowerCase().replace('_', '-').startsWith('es'),
+  );
+  const region = (v: SpeechSynthesisVoice) => {
+    const l = v.lang.toLowerCase().replace('_', '-');
+    return l === 'es-co'
+      ? 0
+      : ['es-mx', 'es-us', 'es-419'].includes(l)
+        ? 1
+        : l.startsWith('es-') && l !== 'es-es'
+          ? 2
+          : 3;
+  };
+  return voces.sort(
+    (a, b) =>
+      Number(esNatural(b)) - Number(esNatural(a)) ||
+      region(a) - region(b) ||
+      a.name.localeCompare(b.name),
+  );
+}
+
+/** La voz elegida por nombre; si no existe, la mejor del género pedido. */
+function elegirVoz(genero: Genero, nombre: string): SpeechSynthesisVoice | null {
+  const voces = vocesEspanol();
+  return (
+    voces.find((v) => v.name === nombre) ??
+    voces.find((v) => generoDeVoz(v) === genero) ??
+    voces[0] ??
+    null
+  );
+}
+
+/** Nombre corto para mostrar: «Microsoft Salome Online (Natural) - Spanish (Colombia)» → «Salome · Colombia». */
+function nombreCorto(v: SpeechSynthesisVoice): string {
+  const pais = v.name.match(/\(([^)]+)\)\s*$/)?.[1] ?? v.lang;
+  const base = v.name
+    .replace(/^(Microsoft|Google)\s+/i, '')
+    .replace(/\s*Online.*$|\s*-\s*Spanish.*$|\s*\(.*$/i, '')
+    .trim();
+  return `${base || v.name} · ${pais}${esNatural(v) ? ' ★' : ''}`;
+}
+
+/**
+ * Hace que la lectura suene más natural: quita el «$», lee «CMD-2026…» como
+ * «servicio», y separa en frases para que el navegador haga pausas.
+ */
+function prepararTexto(texto: string): string[] {
+  const limpio = texto
+    .replace(/\$/g, '')
+    .replace(/\bCMD-\d{8}-0*(\d+)\b/g, 'servicio $1')
+    .replace(/\s·\s/g, ', ')
+    .replace(/«|»/g, '');
+  return (
+    limpio
+      .match(/[^.?!;]+[.?!;]?/g)
+      ?.map((f) => f.trim())
+      .filter(Boolean) ?? [limpio]
+  );
 }
 
 function leerTexto(clave: string, defecto: string): string {
@@ -169,6 +239,15 @@ export function AsistenteVoz() {
     leerPreferencia('asistente_manos_libres', false),
   );
   const [palabra, setPalabra] = useState(() => leerTexto('asistente_palabra', 'asistente'));
+  const [genero, setGenero] = useState<Genero>(
+    () => leerTexto('asistente_genero', 'femenina') as Genero,
+  );
+  const [vozNombre, setVozNombre] = useState(() => leerTexto('asistente_voz', ''));
+  const [velocidad, setVelocidad] = useState(
+    () => Number(leerTexto('asistente_velocidad', '1')) || 1,
+  );
+  const [ajustes, setAjustes] = useState(false);
+  const [voces, setVoces] = useState<SpeechSynthesisVoice[]>([]);
   const [vigilando, setVigilando] = useState(false);
 
   const reconocedor = useRef<Reconocedor | null>(null);
@@ -179,6 +258,16 @@ export function AsistenteVoz() {
   const vigia = useRef<Reconocedor | null>(null);
   const ocupado = useRef({ escuchando: false, pensando: false });
   ocupado.current = { escuchando, pensando };
+
+  // Las voces del navegador llegan de forma asíncrona.
+  useEffect(() => {
+    const sintesis = window.speechSynthesis;
+    if (!sintesis) return;
+    const cargar = () => setVoces(vocesEspanol());
+    cargar();
+    sintesis.addEventListener?.('voiceschanged', cargar);
+    return () => sintesis.removeEventListener?.('voiceschanged', cargar);
+  }, []);
 
   useEffect(() => {
     finDeLista.current?.scrollIntoView({ block: 'end' });
@@ -203,15 +292,22 @@ export function AsistenteVoz() {
         return;
       }
       sintesis.cancel();
-      const u = new SpeechSynthesisUtterance(texto.replace(/\$/g, ''));
-      const v = vozEspanol();
-      if (v) u.voice = v;
-      u.lang = v?.lang ?? 'es-CO';
-      u.rate = 1.05;
-      if (luegoEscuchar) u.onend = () => (escucharTrasHablar.current = true);
-      sintesis.speak(u);
+      const v = elegirVoz(genero, vozNombre);
+      const frases = prepararTexto(texto);
+      frases.forEach((frase, i) => {
+        const u = new SpeechSynthesisUtterance(frase);
+        if (v) u.voice = v;
+        u.lang = v?.lang ?? 'es-CO';
+        // Las voces naturales ya tienen buen ritmo; las clásicas suenan mejor un poco más lentas.
+        u.rate = velocidad * (v && esNatural(v) ? 1 : 0.95);
+        u.pitch = 1;
+        if (luegoEscuchar && i === frases.length - 1) {
+          u.onend = () => (escucharTrasHablar.current = true);
+        }
+        sintesis.speak(u);
+      });
     },
-    [hablar],
+    [hablar, genero, vozNombre, velocidad],
   );
 
   const procesar = useCallback(
@@ -464,6 +560,16 @@ export function AsistenteVoz() {
               Asistente
             </h2>
             <div className="flex gap-1">
+              <button
+                type="button"
+                className={`btn-icon ${ajustes ? 'text-accent-from' : ''}`}
+                onClick={() => setAjustes((a) => !a)}
+                aria-pressed={ajustes}
+                aria-label="Ajustes de voz"
+                title="Ajustes de voz"
+              >
+                <Settings2 size={16} />
+              </button>
               {Voz && (
                 <button
                   type="button"
@@ -495,6 +601,105 @@ export function AsistenteVoz() {
               </button>
             </div>
           </header>
+
+          {ajustes && (
+            <div className="space-y-3 border-b border-border-subtle bg-accent-from/5 px-4 py-3 text-xs">
+              <fieldset>
+                <legend className="mb-1 font-semibold text-text-secondary">Voz</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['femenina', 'masculina'] as Genero[]).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      aria-pressed={genero === g}
+                      onClick={() => {
+                        setGenero(g);
+                        guardarTexto('asistente_genero', g);
+                        // Al cambiar de género se usa la mejor voz de ese género.
+                        setVozNombre('');
+                        guardarTexto('asistente_voz', '');
+                      }}
+                      className={`rounded-md border px-3 py-2 text-sm ${
+                        genero === g
+                          ? 'border-accent-from bg-accent-from text-on-accent font-semibold'
+                          : 'border-border-subtle text-text-primary'
+                      }`}
+                    >
+                      {g === 'femenina' ? 'Femenina' : 'Masculina'}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <div>
+                <label
+                  htmlFor="asistente-voz"
+                  className="mb-1 block font-semibold text-text-secondary"
+                >
+                  Voz exacta
+                </label>
+                <select
+                  id="asistente-voz"
+                  className="select h-9 min-h-0 py-1 text-xs"
+                  value={vozNombre}
+                  onChange={(e) => {
+                    setVozNombre(e.target.value);
+                    guardarTexto('asistente_voz', e.target.value);
+                  }}
+                >
+                  <option value="">La mejor {genero} disponible</option>
+                  {voces
+                    .filter((v) => generoDeVoz(v) === genero || generoDeVoz(v) === null)
+                    .map((v) => (
+                      <option key={v.name} value={v.name}>
+                        {nombreCorto(v)}
+                      </option>
+                    ))}
+                </select>
+                {!voces.some(esNatural) && (
+                  <p className="mt-1 text-text-muted">
+                    Para voces más humanas abre el sistema en Microsoft Edge: trae voces «Natural»
+                    de Colombia (Salomé y Gonzalo), gratis.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="asistente-velocidad"
+                  className="shrink-0 font-semibold text-text-secondary"
+                >
+                  Velocidad
+                </label>
+                <input
+                  id="asistente-velocidad"
+                  type="range"
+                  min={0.8}
+                  max={1.3}
+                  step={0.05}
+                  value={velocidad}
+                  onChange={(e) => {
+                    setVelocidad(Number(e.target.value));
+                    guardarTexto('asistente_velocidad', e.target.value);
+                  }}
+                  className="flex-1 accent-[var(--color-accent-from)]"
+                />
+                <button
+                  type="button"
+                  className="btn-ghost h-8 min-h-0 px-2 text-xs"
+                  onClick={() => {
+                    const forzar = !hablar;
+                    if (forzar) setHablar(true);
+                    setTimeout(
+                      () =>
+                        decir('Hola, soy tu asistente. Hoy llevan 350.000 pesos en cuatro ventas.'),
+                      forzar ? 50 : 0,
+                    );
+                  }}
+                >
+                  <Play size={14} aria-hidden="true" /> Probar
+                </button>
+              </div>
+            </div>
+          )}
 
           {manosLibres && (
             <div className="flex items-center gap-2 border-b border-border-subtle bg-accent-from/5 px-4 py-2 text-xs text-text-secondary">
