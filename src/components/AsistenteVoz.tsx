@@ -260,14 +260,22 @@ export function AsistenteVoz() {
   const [voces, setVoces] = useState<SpeechSynthesisVoice[]>([]);
   const [vigilando, setVigilando] = useState(false);
 
-  const reconocedor = useRef<Reconocedor | null>(null);
-  const finalRef = useRef('');
   const finDeLista = useRef<HTMLDivElement | null>(null);
-  const escucharTrasHablar = useRef(false);
-  // Estado vivo para el vigía (sus callbacks no ven el estado de React actualizado).
-  const vigia = useRef<Reconocedor | null>(null);
+  // Estado vivo para el oído (sus callbacks no ven el estado de React actualizado).
   const ocupado = useRef({ escuchando: false, pensando: false });
   ocupado.current = { escuchando, pensando };
+  const vivo = useRef({ manosLibres, abierto, palabra });
+  vivo.current = { manosLibres, abierto, palabra };
+  // Oído único: UN reconocedor continuo que se reinicia solo. «vigia» espera la
+  // palabra clave; «captura» junta lo que se dice y lo envía tras una pausa.
+  const oido = useRef<Reconocedor | null>(null);
+  const modo = useRef<'vigia' | 'captura'>('vigia');
+  const viaPalabra = useRef(false);
+  const base = useRef('');
+  const captadoSesion = useRef('');
+  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const silencioDesde = useRef(0);
+  const pausaHasta = useRef(0);
 
   // Las voces del navegador llegan de forma asíncrona.
   useEffect(() => {
@@ -294,20 +302,31 @@ export function AsistenteVoz() {
     if (accion && vence && ahora >= vence) setAccion(null);
   }, [ahora, vence, accion]);
 
+  const entrarCaptura = useCallback(() => {
+    clearTimeout(temporizador.current);
+    modo.current = 'captura';
+    viaPalabra.current = false;
+    base.current = '';
+    captadoSesion.current = '';
+    silencioDesde.current = 0;
+    setParcial('');
+    setEscuchando(true);
+    oido.current?.abort(); // sesión limpia; se reanuda sola en milisegundos
+  }, []);
+
   const decir = useCallback(
     (texto: string, luegoEscuchar = false, forzar = false) => {
       const sintesis = window.speechSynthesis;
-      if ((!hablar && !forzar) || !sintesis) {
-        if (luegoEscuchar) escucharTrasHablar.current = true;
-        return;
-      }
+      // Tras una pregunta o propuesta, el oído queda en captura para oír la respuesta.
+      if (luegoEscuchar) entrarCaptura();
+      if ((!hablar && !forzar) || !sintesis) return;
       sintesis.cancel();
       const hablarCon = () => {
         // Siempre la MISMA voz: si las voces aún no habían cargado, la primera
         // respuesta salía con la voz por defecto (otra voz, otro volumen).
         const v = elegirVoz(genero, vozNombre);
         const bloques = prepararTexto(texto);
-        bloques.forEach((bloque, i) => {
+        bloques.forEach((bloque) => {
           const u = new SpeechSynthesisUtterance(bloque);
           if (v) u.voice = v;
           u.lang = v?.lang ?? 'es-CO';
@@ -315,9 +334,6 @@ export function AsistenteVoz() {
           u.pitch = 1;
           // Las voces naturales ya tienen buen ritmo; las clásicas suenan mejor un poco más lentas.
           u.rate = velocidad * (v && esNatural(v) ? 1 : 0.95);
-          if (luegoEscuchar && i === bloques.length - 1) {
-            u.onend = () => (escucharTrasHablar.current = true);
-          }
           sintesis.speak(u);
         });
       };
@@ -336,7 +352,7 @@ export function AsistenteVoz() {
         setTimeout(una, 1500);
       }
     },
-    [hablar, genero, vozNombre, velocidad],
+    [hablar, genero, vozNombre, velocidad, entrarCaptura],
   );
 
   const procesar = useCallback(
@@ -378,33 +394,86 @@ export function AsistenteVoz() {
     [procesar],
   );
 
-  const detener = useCallback(() => {
-    reconocedor.current?.stop();
+  const volverAVigia = useCallback(() => {
+    clearTimeout(temporizador.current);
+    modo.current = 'vigia';
+    viaPalabra.current = false;
+    base.current = '';
+    captadoSesion.current = '';
+    silencioDesde.current = 0;
+    setEscuchando(false);
+    setParcial('');
   }, []);
 
-  const escuchar = useCallback(() => {
-    if (!Voz || escuchando) return;
-    window.speechSynthesis?.cancel();
-    vigia.current?.abort();
-    vigia.current = null;
-    setVigilando(false);
+  const detener = useCallback(() => {
+    volverAVigia();
+    oido.current?.abort();
+  }, [volverAVigia]);
+
+  // Cierra la frase (hubo una pausa) y la manda completa de una vez.
+  const cerrarFrase = useCallback(() => {
+    const texto = `${base.current} ${captadoSesion.current}`.trim();
+    volverAVigia();
+    oido.current?.abort();
+    if (texto) enviarTexto(texto);
+  }, [volverAVigia, enviarTexto]);
+  const cerrarRef = useRef(cerrarFrase);
+  cerrarRef.current = cerrarFrase;
+  const decirRef = useRef(decir);
+  decirRef.current = decir;
+
+  const arrancarOido = useCallback(() => {
+    if (!Voz) return;
     const rec = new Voz();
     rec.lang = 'es-CO';
     rec.interimResults = true;
-    rec.continuous = false;
+    rec.continuous = true;
     rec.maxAlternatives = 1;
-    finalRef.current = '';
     rec.onresult = (e) => {
-      let interino = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalRef.current += r[0].transcript;
-        else interino += r[0].transcript;
+      if (ocupado.current.pensando) return;
+      let completo = '';
+      let ultimaFinal = false;
+      for (let i = 0; i < e.results.length; i++) {
+        completo += ` ${e.results[i][0].transcript}`;
+        ultimaFinal = e.results[i].isFinal;
       }
-      setParcial((finalRef.current + ' ' + interino).trim());
+      completo = completo.trim();
+      if (modo.current === 'vigia') {
+        const resto = buscarPalabraClave(completo, vivo.current.palabra);
+        if (resto === null) return;
+        modo.current = 'captura';
+        viaPalabra.current = true;
+        base.current = '';
+        silencioDesde.current = 0;
+        setEscuchando(true);
+        setAbierto(true);
+      }
+      const captado = viaPalabra.current
+        ? (buscarPalabraClave(completo, vivo.current.palabra) ?? '')
+        : completo;
+      captadoSesion.current = captado;
+      const total = `${base.current} ${captado}`.trim();
+      setParcial(total);
+      clearTimeout(temporizador.current);
+      if (total) {
+        silencioDesde.current = 0;
+        // Pausa corta tras un resultado cerrado; algo más larga si aún es provisional.
+        temporizador.current = setTimeout(() => cerrarRef.current(), ultimaFinal ? 650 : 1300);
+      } else {
+        // Solo dijo la palabra clave: si no sigue hablando, responde un saludo.
+        temporizador.current = setTimeout(() => {
+          if (`${base.current} ${captadoSesion.current}`.trim()) return;
+          const saludo = SALUDOS[Math.floor(Math.random() * SALUDOS.length)];
+          setTurnos((t) => [...t.slice(-12), { quien: 'asistente', r: { respuesta: saludo } }]);
+          decirRef.current(saludo);
+        }, 900);
+      }
     };
     rec.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        setManosLibres(false);
+        guardarPreferencia('asistente_manos_libres', false);
+        volverAVigia();
         setTurnos((t) => [
           ...t,
           {
@@ -416,118 +485,66 @@ export function AsistenteVoz() {
             error: true,
           },
         ]);
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        pausaHasta.current = Date.now() + 2000; // red caída u otro fallo: no insistir en bucle
       }
     };
     rec.onend = () => {
-      setEscuchando(false);
-      const texto = finalRef.current.trim();
-      setParcial('');
-      if (texto) enviarTexto(texto);
+      if (oido.current === rec) oido.current = null;
+      setVigilando(false);
+      // Chrome cierra la escucha cada cierto tiempo: se guarda lo dicho y se reanuda.
+      if (modo.current === 'captura') {
+        base.current = `${base.current} ${captadoSesion.current}`.trim();
+      }
+      captadoSesion.current = '';
+      viaPalabra.current = false;
     };
-    reconocedor.current = rec;
+    oido.current = rec;
     try {
       rec.start();
-      setEscuchando(true);
+      setVigilando(true);
     } catch {
-      setEscuchando(false);
+      oido.current = null;
     }
-  }, [Voz, escuchando, enviarTexto]);
+  }, [Voz, volverAVigia]);
 
-  // Tras leer una pregunta o una propuesta, escucha la respuesta sin tocar nada.
+  // Vigila el oído: lo mantiene encendido cuando toca y lo apaga mientras el
+  // asistente habla (para no oírse a sí mismo) o cuando no hace falta.
   useEffect(() => {
-    const t = setInterval(() => {
-      if (escucharTrasHablar.current && !window.speechSynthesis?.speaking) {
-        escucharTrasHablar.current = false;
-        if (abierto && Voz) escuchar();
-      }
-    }, 250);
-    return () => clearInterval(t);
-  }, [abierto, Voz, escuchar]);
-
-  // ── Manos libres: vigía que espera la palabra clave ─────────────────────
-  const activarPorVoz = useCallback(
-    (resto: string) => {
-      setAbierto(true);
-      if (resto.trim().split(/\s+/).length >= 2) {
-        enviarTexto(resto);
-      } else {
-        const saludo = SALUDOS[Math.floor(Math.random() * SALUDOS.length)];
-        setTurnos((t) => [...t.slice(-12), { quien: 'asistente', r: { respuesta: saludo } }]);
-        decir(saludo, true);
-      }
-    },
-    [enviarTexto, decir],
-  );
-
-  useEffect(() => {
-    if (!manosLibres || !Voz) {
-      vigia.current?.abort();
-      vigia.current = null;
-      setVigilando(false);
-      return;
-    }
-    let vivo = true;
-    const arrancar = () => {
-      if (!vivo || vigia.current) return;
-      const libre =
-        !ocupado.current.escuchando &&
+    if (!Voz) return;
+    const revisar = () => {
+      const { manosLibres: ml, abierto: ab } = vivo.current;
+      const hablando = !!window.speechSynthesis?.speaking;
+      const quiere =
+        (modo.current === 'captura' ? ab : ml) &&
+        !hablando &&
         !ocupado.current.pensando &&
-        !window.speechSynthesis?.speaking &&
-        !escucharTrasHablar.current &&
-        document.visibilityState === 'visible';
-      if (!libre) return;
-      const rec = new Voz();
-      rec.lang = 'es-CO';
-      rec.interimResults = true;
-      rec.continuous = true;
-      rec.maxAlternatives = 1;
-      let disparado = false;
-      rec.onresult = (e) => {
-        if (disparado) return;
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const r = e.results[i];
-          const resto = buscarPalabraClave(r[0].transcript, palabra);
-          if (resto === null) continue;
-          // Con la palabra sola se activa ya; si viene una orden, se espera a
-          // que termine la frase para no cortarla.
-          if (!r.isFinal && resto.trim()) continue;
-          disparado = true;
-          rec.abort();
-          vigia.current = null;
-          setVigilando(false);
-          activarPorVoz(resto);
+        document.visibilityState === 'visible' &&
+        Date.now() >= pausaHasta.current;
+      if (!quiere) {
+        silencioDesde.current = 0;
+        if (oido.current) oido.current.abort();
+        return;
+      }
+      // Captura sin que se oiga nada durante 10 s: vuelve a esperar la palabra clave.
+      if (modo.current === 'captura' && !`${base.current} ${captadoSesion.current}`.trim()) {
+        if (!silencioDesde.current) silencioDesde.current = Date.now();
+        else if (Date.now() - silencioDesde.current > 10000) {
+          volverAVigia();
+          oido.current?.abort();
           return;
         }
-      };
-      rec.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          setManosLibres(false);
-          guardarPreferencia('asistente_manos_libres', false);
-        }
-      };
-      rec.onend = () => {
-        if (vigia.current === rec) vigia.current = null;
-        setVigilando(false);
-      };
-      vigia.current = rec;
-      try {
-        rec.start();
-        setVigilando(true);
-      } catch {
-        vigia.current = null;
       }
+      if (!oido.current) arrancarOido();
     };
-    // Chrome corta la escucha continua cada cierto tiempo: se reanuda sola.
-    const t = setInterval(arrancar, 700);
-    arrancar();
+    const t = setInterval(revisar, 150);
     return () => {
-      vivo = false;
       clearInterval(t);
-      vigia.current?.abort();
-      vigia.current = null;
-      setVigilando(false);
+      clearTimeout(temporizador.current);
+      oido.current?.abort();
+      oido.current = null;
     };
-  }, [manosLibres, Voz, palabra, activarPorVoz]);
+  }, [Voz, arrancarOido, volverAVigia]);
 
   const alternarManosLibres = () => {
     const nuevo = !manosLibres;
@@ -543,19 +560,21 @@ export function AsistenteVoz() {
   // Al cerrar el panel se calla y deja de escuchar.
   useEffect(() => {
     if (abierto) return;
-    reconocedor.current?.abort();
+    volverAVigia();
     window.speechSynthesis?.cancel();
-    escucharTrasHablar.current = false;
-  }, [abierto]);
+  }, [abierto, volverAVigia]);
 
   const pulsarBoton = () => {
     if (!abierto) {
       setAbierto(true);
-      if (Voz) setTimeout(escuchar, 50);
+      if (Voz) entrarCaptura();
       return;
     }
     if (escuchando) detener();
-    else if (Voz) escuchar();
+    else if (Voz) {
+      window.speechSynthesis?.cancel();
+      entrarCaptura();
+    }
   };
 
   const confirmar = () =>
