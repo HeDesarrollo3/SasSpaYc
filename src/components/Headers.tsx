@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { LogOut, Menu } from 'lucide-react';
 import { BotonSonido } from './BotonSonido';
 import { BotonTema } from './BotonTema';
+import { AsistenteVoz } from './AsistenteVoz';
 import { useAuthStore } from '../stores/auth.store';
 import { ROL, claseBadge, metaEstado } from '../lib/estados';
 import { iniciales } from '../lib/format';
@@ -38,6 +39,7 @@ export const Header: React.FC<{ onAbrirMenu: () => void; nombreNegocio: string }
           sonoros, que sí funcionan. Un botón muerto en la cabecera es peor que no
           tenerlo: el usuario lo pulsa, no pasa nada y deja de confiar en el resto.
         */}
+        <AsistenteVoz />
         <BotonTema />
         <BotonSonido />
 
