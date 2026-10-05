@@ -985,7 +985,7 @@ export function NuevoServicioPage() {
               <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span>
                 Tu usuario todavía no está vinculado a una ficha de colaborador, así que el envío
-                fallará. Es lo que desbloquea la migración <code>001</code>; avisa a administración.
+                fallará. Pide a administración que te vincule en Usuarios.
               </span>
             </div>
           )}

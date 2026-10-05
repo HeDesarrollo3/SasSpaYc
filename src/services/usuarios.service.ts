@@ -138,6 +138,7 @@ export const UsuariosService = {
       nombre: input.nombre,
       email: input.email,
       rol: input.rol,
+      ...(input.colaborador_id ? { colaborador_id: input.colaborador_id } : {}),
     });
     return res.data;
   },

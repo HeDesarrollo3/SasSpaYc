@@ -393,9 +393,7 @@ export function SeccionMetas({
             Metas
           </h2>
           <p className="mt-1 max-w-3xl text-body-sm text-text-secondary">
-            Tu avance frente a lo que te propusiste. El color de cada barra no mira sólo el
-            porcentaje: compara lo que llevas con el ritmo que necesitarías llevar a estas alturas
-            del periodo.
+            Cómo vas frente a tus metas, según el ritmo que necesitas a esta hora del periodo.
           </p>
         </div>
         {!cargandoTodo && (

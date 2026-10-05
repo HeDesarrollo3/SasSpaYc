@@ -211,8 +211,10 @@ export const ColaboradoresPage: React.FC = () => {
                   {iniciales(c.nombre)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-body font-semibold text-text-primary">{c.nombre}</h2>
-                  <p className="truncate text-body-sm text-text-secondary">
+                  <h2 className="text-body leading-snug font-semibold text-text-primary">
+                    {c.nombre}
+                  </h2>
+                  <p className="line-clamp-2 text-body-sm text-text-secondary capitalize-first">
                     {c.area || 'Sin área'}
                   </p>
                 </div>
@@ -330,7 +332,6 @@ const Filtros: React.FC<{
         value={busqueda}
         onChange={(e) => onBuscar(e.target.value)}
       />
-      <p className="field-help">La búsqueda espera 300 ms antes de consultar al servidor.</p>
     </div>
 
     <div className="sm:w-52">

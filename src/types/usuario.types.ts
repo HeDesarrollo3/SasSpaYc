@@ -80,6 +80,8 @@ export const crearUsuarioSchema = z.object({
   activo: z.boolean().default(true),
   /** Lo rellena el flujo de invitación con el `id` de Supabase Auth. */
   auth_user_id: z.string().uuid().nullable().optional(),
+  /** Ficha de colaborador a la que se vincula (obligatoria con rol colaborador). */
+  colaborador_id: z.number().int().positive().nullable().optional(),
 });
 
 /** Edición: sin `email` ni `auth_user_id` (contrato `ActualizarUsuarioDto`). */

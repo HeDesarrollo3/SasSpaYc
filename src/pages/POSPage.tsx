@@ -146,9 +146,13 @@ function useEsMovil(): boolean {
 interface TarjetaCatalogoProps {
   item: ItemCatalogo;
   onAgregar: (item: ItemCatalogo) => void;
+  /** Sólo con el filtro «Todos» hace falta decir si es servicio o producto. */
+  mostrarTipo: boolean;
+  /** Cuántas unidades ya hay en el ticket. */
+  enTicket: number;
 }
 
-function TarjetaCatalogo({ item, onAgregar }: TarjetaCatalogoProps) {
+function TarjetaCatalogo({ item, onAgregar, mostrarTipo, enTicket }: TarjetaCatalogoProps) {
   // Los adicionales existen y se listan, pero el backend todavía no acepta
   // `adicional_id` en `crear_venta` (requiere la migración 005).
   const esAdicional = item.tipo === 'adicional';
@@ -156,12 +160,10 @@ function TarjetaCatalogo({ item, onAgregar }: TarjetaCatalogoProps) {
   const deshabilitado = esAdicional || sinStock;
 
   const motivo = esAdicional
-    ? 'Disponible próximamente — requiere la migración de extras (005): el servidor aún no acepta adicional_id en crear_venta'
+    ? 'Los adicionales se cobran junto con el servicio, desde la bandeja de cobro'
     : sinStock
       ? 'Sin stock disponible'
       : `Agregar ${item.nombre} al ticket`;
-
-  const tono = esAdicional ? 'neutral' : item.tipo === 'servicio' ? 'accent' : 'info';
 
   return (
     <button
@@ -169,37 +171,41 @@ function TarjetaCatalogo({ item, onAgregar }: TarjetaCatalogoProps) {
       onClick={() => onAgregar(item)}
       disabled={deshabilitado}
       title={motivo}
-      className={`flex flex-col justify-between gap-2 rounded-md p-3 text-left ${
-        deshabilitado ? 'panel cursor-not-allowed opacity-60' : 'glass-card cursor-pointer'
+      className={`relative flex min-h-[88px] flex-col justify-between gap-1.5 rounded-md border p-3 text-left transition-colors ${
+        deshabilitado
+          ? 'cursor-not-allowed border-border-subtle bg-surface-card opacity-60'
+          : enTicket > 0
+            ? 'cursor-pointer border-accent-from bg-accent-from/10'
+            : 'cursor-pointer border-border-subtle bg-surface-card hover:border-border-strong hover:bg-surface-card-hover'
       }`}
     >
-      <div className="space-y-1">
-        <span className={claseBadge(tono)}>{ETIQUETA_TIPO[item.tipo]}</span>
-        <h3 className="line-clamp-2 text-body font-semibold text-text-primary">{item.nombre}</h3>
-
-        {item.tipo === 'servicio' && item.categoria && (
-          <p className="text-body-sm text-text-muted">{item.categoria}</p>
+      {enTicket > 0 && (
+        <span className="tabular absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-accent-from text-xs font-bold text-on-accent">
+          {enTicket}
+        </span>
+      )}
+      <div className="min-w-0 space-y-0.5">
+        {mostrarTipo && (
+          <span className="text-[11px] font-semibold tracking-wide text-text-muted uppercase">
+            {ETIQUETA_TIPO[item.tipo]}
+          </span>
         )}
-
+        <h3 className="line-clamp-2 text-sm leading-snug font-semibold text-text-primary">
+          {item.nombre}
+        </h3>
         {item.tipo === 'producto' && (
-          <p className="tabular text-body-sm text-text-muted">
-            Stock: {formatNumero(item.stock_actual ?? 0)}
-          </p>
-        )}
-
-        {esAdicional && (
-          <p className="flex items-start gap-1 text-body-sm text-text-muted">
-            <Info size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
-            Disponible próximamente — requiere la migración de extras.
+          <p className="tabular text-xs text-text-muted">
+            {sinStock ? 'Sin stock' : `Stock ${formatNumero(item.stock_actual ?? 0)}`}
           </p>
         )}
       </div>
-
-      <div className="flex items-center justify-between border-t border-border-subtle pt-2">
-        <span className="tabular text-body font-bold text-accent-from">
-          {formatMoney(item.precio)}
+      <div className="flex items-center justify-between">
+        <span className="tabular text-sm font-bold text-text-primary">
+          {item.precio_min != null && item.precio_max != null
+            ? `${formatMoney(item.precio_min)}+`
+            : formatMoney(item.precio)}
         </span>
-        {!deshabilitado && <Plus size={16} className="text-text-muted" aria-hidden="true" />}
+        {!deshabilitado && <Plus size={16} className="text-accent-from" aria-hidden="true" />}
       </div>
     </button>
   );
@@ -246,6 +252,7 @@ export function POSPage() {
 
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('servicio');
   const [busqueda, setBusqueda] = useState('');
+  const [area, setArea] = useState<string>('');
 
   const [lineas, setLineas] = useState<LineaTicket[]>([]);
 
@@ -261,6 +268,23 @@ export function POSPage() {
   const [colaboradorId, setColaboradorId] = useState('');
   const [formaPago, setFormaPago] = useState<FormaPagoValor>('EFECTIVO');
   const [cuentaId, setCuentaId] = useState('');
+  // La cuenta se propone según la forma de pago (se puede cambiar).
+  const [cuentaElegidaAMano, setCuentaElegidaAMano] = useState(false);
+  useEffect(() => {
+    if (cuentaElegidaAMano || !cuentas.length) return;
+    const orden: Record<string, string[]> = {
+      EFECTIVO: ['EFECTIVO'],
+      TARJETA: ['BANCO', 'BILLETERA_DIGITAL', 'OTRO'],
+      TRANSFERENCIA: ['BANCO', 'BILLETERA_DIGITAL', 'OTRO'],
+    };
+    for (const tipo of orden[formaPago] ?? []) {
+      const c = cuentas.find((x) => x.tipo === tipo);
+      if (c) {
+        setCuentaId(String(c.id));
+        return;
+      }
+    }
+  }, [formaPago, cuentas, cuentaElegidaAMano]);
   const [montoRecibido, setMontoRecibido] = useState('');
   const [notas, setNotas] = useState('');
 
@@ -320,17 +344,34 @@ export function POSPage() {
     [items],
   );
 
+  // Áreas (categorías) del tipo elegido, para no mostrar 100 servicios a la vez.
+  const areas = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of items) {
+      if (filtroTipo !== 'todos' && i.tipo !== filtroTipo) continue;
+      const c = i.categoria?.trim();
+      if (c) m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b, 'es'));
+  }, [items, filtroTipo]);
+
+  const itemsFiltradosTipo = useMemo(
+    () => items.filter((i) => filtroTipo === 'todos' || i.tipo === filtroTipo).length,
+    [items, filtroTipo],
+  );
+
   const itemsFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return items.filter((item) => {
       const coincideTipo = filtroTipo === 'todos' || item.tipo === filtroTipo;
       if (!coincideTipo) return false;
+      if (!q && area && (item.categoria?.trim() ?? '') !== area) return false;
       if (!q) return true;
       return (
         item.nombre.toLowerCase().includes(q) || (item.categoria ?? '').toLowerCase().includes(q)
       );
     });
-  }, [items, filtroTipo, busqueda]);
+  }, [items, filtroTipo, busqueda, area]);
 
   const clientesFiltrados = useMemo(() => {
     const q = busquedaCliente.trim().toLowerCase();
@@ -367,7 +408,7 @@ export function POSPage() {
     if (item.tipo === 'adicional') {
       // Defensa: el botón ya está deshabilitado. Nunca metemos el id de un
       // adicional en `producto_servicio_id`: colisionaría con servicios.
-      toast.info('Los adicionales llegarán con la migración de extras.');
+      toast.info('Los adicionales se cobran junto con el servicio, desde la bandeja de cobro.');
       return;
     }
     if (item.tipo === 'producto' && (item.stock_actual ?? 0) <= 0) {
@@ -412,18 +453,6 @@ export function POSPage() {
   const quitarLinea = (itemId: number) => {
     setLineas((prev) => prev.filter((l) => l.item.id !== itemId));
   };
-
-  const asignarColaboradorLinea = (itemId: number, valor: string) => {
-    setLineas((prev) =>
-      prev.map((l) =>
-        l.item.id === itemId ? { ...l, colaboradorId: valor === '' ? null : Number(valor) } : l,
-      ),
-    );
-  };
-
-  /** Colaborador efectivo de una línea: su override o el global del ticket. */
-  const colaboradorDeLinea = (l: LineaTicket): number | null =>
-    l.colaboradorId ?? (colaboradorId === '' ? null : Number(colaboradorId));
 
   const limpiarTicket = () => {
     setLineas([]);
@@ -492,7 +521,7 @@ export function POSPage() {
 
   // ── Panel del ticket (compartido escritorio / sheet móvil) ────────────────
   const ticketPanel = (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex shrink-0 items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-h2 text-text-primary">
           <ShoppingCart size={18} className="text-accent-from" aria-hidden="true" />
@@ -636,20 +665,19 @@ export function POSPage() {
       </div>
 
       {/* Líneas */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div>
         {lineas.length === 0 ? (
-          <p className="py-10 text-center text-body-sm text-text-muted">
+          <p className="rounded-md border border-dashed border-border-subtle py-6 text-center text-body-sm text-text-muted">
             El ticket está vacío. Toca un ítem del catálogo para agregarlo.
           </p>
         ) : (
           <ul>
             {lineas.map((l) => {
-              const efectivo = colaboradorDeLinea(l);
               const maximo = maximoDeItem(l.item);
               return (
                 <li
                   key={l.item.id}
-                  className="space-y-2 border-b border-border-subtle py-3 last:border-b-0"
+                  className="border-b border-border-subtle py-2.5 last:border-b-0"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -692,39 +720,12 @@ export function POSPage() {
                       </button>
                     </div>
                   </div>
-
-                  <div>
-                    <label htmlFor={`pos-linea-colab-${l.item.id}`} className="sr-only">
-                      Colaborador de {l.item.nombre}
-                    </label>
-                    <select
-                      id={`pos-linea-colab-${l.item.id}`}
-                      className="select"
-                      value={efectivo === null ? '' : String(efectivo)}
-                      onChange={(e) => asignarColaboradorLinea(l.item.id, e.target.value)}
-                    >
-                      <option value="">— Sin colaborador asignado —</option>
-                      {colaboradores.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </li>
               );
             })}
           </ul>
         )}
       </div>
-
-      {lineas.length > 0 && (
-        <p className="field-help flex shrink-0 items-start gap-1">
-          <Info size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
-          El colaborador por línea es informativo: la venta se registra con el colaborador del
-          ticket (el reparto por línea llega con la migración de comandas).
-        </p>
-      )}
 
       {/* Totales + cobro */}
       <div className="shrink-0 space-y-3 border-t border-border-subtle pt-3">
@@ -772,7 +773,10 @@ export function POSPage() {
             id="pos-cuenta"
             className="select"
             value={cuentaId}
-            onChange={(e) => setCuentaId(e.target.value)}
+            onChange={(e) => {
+              setCuentaId(e.target.value);
+              setCuentaElegidaAMano(true);
+            }}
             disabled={cuentasQ.isPending}
           >
             <option value="">
@@ -795,7 +799,7 @@ export function POSPage() {
               No hay cuentas financieras activas: sin cuenta no se puede cobrar.
             </p>
           ) : (
-            <p className="field-help">Obligatoria: es el destino del dinero.</p>
+            <p className="field-help">Se propone según la forma de pago; puedes cambiarla.</p>
           )}
         </div>
 
@@ -873,19 +877,21 @@ export function POSPage() {
           </div>
         )}
 
-        <button
-          type="button"
-          className="btn-primary w-full"
-          onClick={handleCobrar}
-          disabled={bloqueado}
-        >
-          {enviando ? (
-            <Loader2 className="animate-spin" size={16} aria-hidden="true" />
-          ) : (
-            <Banknote size={16} aria-hidden="true" />
-          )}
-          Cobrar {formatMoney(total)}
-        </button>
+        <div className="sticky bottom-0 -mx-4 bg-surface-card px-4 pt-2 pb-1">
+          <button
+            type="button"
+            className="btn-primary w-full"
+            onClick={handleCobrar}
+            disabled={bloqueado}
+          >
+            {enviando ? (
+              <Loader2 className="animate-spin" size={16} aria-hidden="true" />
+            ) : (
+              <Banknote size={16} aria-hidden="true" />
+            )}
+            Cobrar {formatMoney(total)}
+          </button>
+        </div>
 
         {motivos.length > 0 && (
           <ul className="space-y-1">
@@ -976,7 +982,10 @@ export function POSPage() {
                   <button
                     key={f.valor}
                     type="button"
-                    onClick={() => setFiltroTipo(f.valor)}
+                    onClick={() => {
+                      setFiltroTipo(f.valor);
+                      setArea('');
+                    }}
                     aria-pressed={activo}
                     className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-2 text-label transition-colors ${
                       activo
@@ -992,9 +1001,36 @@ export function POSPage() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {areas.length > 1 && !busqueda.trim() && (
+            <div
+              className="-mb-1 flex shrink-0 gap-1.5 overflow-x-auto pb-1"
+              role="group"
+              aria-label="Filtrar por área"
+            >
+              {[['', itemsFiltradosTipo] as [string, number], ...areas].map(([valor, n]) => {
+                const activo = area === valor;
+                return (
+                  <button
+                    key={valor || 'todas'}
+                    type="button"
+                    aria-pressed={activo}
+                    onClick={() => setArea(valor)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      activo
+                        ? 'border-accent-from bg-accent-from font-semibold text-on-accent'
+                        : 'border-border-subtle bg-surface-card text-text-secondary hover:border-border-strong'
+                    }`}
+                  >
+                    {valor || 'Todas'} <span className="tabular opacity-75">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto pt-2 pr-1">
             {catalogoQ.isPending ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="skeleton h-28" />
                 ))}
@@ -1021,9 +1057,15 @@ export function POSPage() {
                   : 'Sin resultados para esa búsqueda.'}
               </p>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
                 {itemsFiltrados.map((item) => (
-                  <TarjetaCatalogo key={item.id} item={item} onAgregar={agregarItem} />
+                  <TarjetaCatalogo
+                    key={item.id}
+                    item={item}
+                    onAgregar={agregarItem}
+                    mostrarTipo={filtroTipo === 'todos'}
+                    enTicket={lineas.find((l) => l.item.id === item.id)?.cantidad ?? 0}
+                  />
                 ))}
               </div>
             )}
@@ -1033,7 +1075,7 @@ export function POSPage() {
         {/* ── Panel derecho: ticket (escritorio) ── */}
         {!esMovil && (
           <aside
-            className="panel flex min-h-0 flex-col overflow-hidden p-4 xl:col-span-5"
+            className="panel flex min-h-0 flex-col overflow-y-auto p-4 xl:col-span-5"
             aria-label="Ticket de venta"
           >
             {ticketPanel}
@@ -1065,7 +1107,7 @@ export function POSPage() {
                 aria-hidden="true"
               />
               <div
-                className="sheet-panel overflow-hidden p-4"
+                className="sheet-panel overflow-y-auto p-4"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Ticket de venta"

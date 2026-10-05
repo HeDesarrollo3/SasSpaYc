@@ -118,10 +118,8 @@ export function PerfilPage() {
             <div className="banner banner-info mt-3" role="status">
               <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span>
-                Este vínculo (<code>usuarios.colaborador_id</code>) llega con la migración{' '}
-                <code>001</code>, que aún no está aplicada en la base. Hasta entonces no se pueden
-                registrar servicios: el envío fallará y verás un aviso. Es lo único que falta de tu
-                lado; avisa a administración.
+                Sin ese vínculo no puedes registrar servicios. Pide a administración que te
+                vincule a tu ficha en Usuarios.
               </span>
             </div>
           </>

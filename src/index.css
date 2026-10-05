@@ -691,3 +691,6 @@ input[type='number'] {
   .skeleton { animation: none; background: var(--color-surface-card-hover); }
   .glass-card:hover { transform: none; }
 }
+
+/* Primera letra en mayúscula (áreas escritas en minúscula: «cabello» → «Cabello»). */
+.capitalize-first::first-letter { text-transform: uppercase; }

@@ -138,12 +138,12 @@ export function TarjetaMeta({
 
   return (
     <article className="panel flex h-full flex-col p-4" aria-label={`Meta de ${titulo}`}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col items-start gap-2">
         <span className="flex items-center gap-2 text-body-sm font-semibold text-text-primary">
           <Icono size={16} className="shrink-0 text-accent-from" aria-hidden="true" />
           {titulo}
         </span>
-        <span className={claseBadge(tono)}>
+        <span className={`${claseBadge(tono)} whitespace-nowrap`}>
           <IconoRitmo size={12} aria-hidden="true" />
           {etiquetaRitmo}
         </span>

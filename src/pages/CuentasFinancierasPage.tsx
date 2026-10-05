@@ -83,25 +83,13 @@ function TarjetaCuenta({ cuenta }: { cuenta: CuentaFinanciera }) {
             <Icono size={20} className="text-text-secondary" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="truncate font-semibold text-text-primary">{cuenta.nombre}</p>
+            <p className="font-semibold leading-snug text-text-primary">{cuenta.nombre}</p>
             <p className="text-xs text-text-muted">
-              {etiquetaTipo(cuenta.tipo)}
+              {etiquetaTipo(cuenta.tipo).replace(/\s*\(.*\)$/, '')}
               {cuenta.numero_referencia ? ` · ${cuenta.numero_referencia}` : ''}
             </p>
           </div>
         </div>
-        {!abierto && (
-          <button
-            type="button"
-            className="btn-secondary shrink-0 text-sm"
-            onClick={() => {
-              setSaldo(String(Math.round(Number(cuenta.saldo_actual))));
-              setAbierto(true);
-            }}
-          >
-            Ajustar saldo
-          </button>
-        )}
       </div>
 
       <div>
@@ -110,6 +98,18 @@ function TarjetaCuenta({ cuenta }: { cuenta: CuentaFinanciera }) {
           {formatMoney(Number(cuenta.saldo_actual))}
         </p>
       </div>
+      {!abierto && (
+        <button
+          type="button"
+          className="btn-secondary w-full text-sm"
+          onClick={() => {
+            setSaldo(String(Math.round(Number(cuenta.saldo_actual))));
+            setAbierto(true);
+          }}
+        >
+          Ajustar saldo
+        </button>
+      )}
 
       {abierto && (
         <form onSubmit={enviar} className="space-y-3 border-t border-border pt-3">

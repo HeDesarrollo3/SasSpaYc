@@ -182,7 +182,7 @@ export const DashboardPage: React.FC = () => {
           className="lg:col-span-2"
           cargando={isPending}
           extra={<ComparacionAyer actual={data?.ventasDia ?? 0} anterior={data?.ventasAyer ?? 0} />}
-          detalle="Sólo ventas cobradas hoy (estado PAGADA)."
+          detalle="Ventas ya cobradas hoy."
         />
 
         <KpiCard

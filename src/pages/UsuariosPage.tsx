@@ -35,6 +35,8 @@ import { formatFecha, formatNumero, iniciales } from '../lib/format';
 import { claseBadge, metaEstado, ROL } from '../lib/estados';
 import { PageHeader } from '../components/PageHeader';
 import { useAuthStore } from '../stores/auth.store';
+import { useQuery } from '@tanstack/react-query';
+import { ColaboradoresService } from '../services/colaboradores.service';
 
 const LIMIT = 20;
 
@@ -159,10 +161,6 @@ export const UsuariosPage: React.FC = () => {
             value={q}
             onChange={(e) => cambiarBusqueda(e.target.value)}
           />
-          <p className="field-help">
-            El endpoint de usuarios no admite búsqueda: filtra los registros de la página
-            cargada.
-          </p>
         </div>
 
         <div className="sm:w-52">
@@ -230,7 +228,9 @@ export const UsuariosPage: React.FC = () => {
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate text-text-primary">{u.nombre}</span>
-                          <span className="block truncate text-body-sm text-text-muted">{u.email}</span>
+                          <span className="block truncate text-body-sm text-text-muted">
+                            {u.email}
+                          </span>
                         </span>
                       </div>
                     </td>
@@ -329,11 +329,7 @@ export const UsuariosPage: React.FC = () => {
       </div>
 
       {formVisible && (
-        <UsuarioDrawer
-          key={editando?.id ?? 'nuevo'}
-          usuario={editando}
-          onClose={cerrarForm}
-        />
+        <UsuarioDrawer key={editando?.id ?? 'nuevo'} usuario={editando} onClose={cerrarForm} />
       )}
 
       {aDesactivar && (
@@ -397,7 +393,19 @@ const UsuarioDrawer: React.FC<{
    */
   const rol = useWatch({ control, name: 'rol' });
 
+  // Fichas de colaborador para vincular un usuario con rol «colaborador».
+  const [fichaId, setFichaId] = useState('');
+  const fichas = useQuery({
+    queryKey: ['colaboradores', 'list', { activo: true, limit: 100 }],
+    queryFn: () => ColaboradoresService.listar({ activo: true, limit: 100 }),
+    enabled: rol === 'colaborador',
+  });
+
   const onSubmit = async (input: UsuarioFormOutput) => {
+    if (!usuario && input.rol === 'colaborador' && !fichaId) {
+      toast.error('Elige la ficha de colaborador de esta persona.');
+      return;
+    }
     try {
       if (usuario) {
         // `ActualizarUsuarioDto` sólo acepta nombre/rol/activo: el correo no se
@@ -416,6 +424,7 @@ const UsuarioDrawer: React.FC<{
           email: input.email,
           rol: input.rol,
           activo: input.activo,
+          colaborador_id: input.rol === 'colaborador' ? Number(fichaId) : null,
         });
         toast.success('Invitación enviada. El usuario recibirá un correo.');
       }
@@ -543,26 +552,54 @@ const UsuarioDrawer: React.FC<{
                 </p>
               ) : (
                 <p className="field-help">
-                  {metaEstado(ROL, rol).label}: los permisos del usuario se resuelven a partir de
-                  este rol.
+                  {{
+                    administrador:
+                      'Acceso completo: configuración, reportes, liquidaciones y usuarios.',
+                    recepcionista: 'Cobra servicios, registra clientes y usa el POS.',
+                    cajero: 'Cobra, maneja la caja y las cuentas por cobrar.',
+                    colaborador:
+                      'Solo el portal: registra sus servicios y ve sus comisiones y metas.',
+                  }[rol as string] ?? ''}
                 </p>
               )}
 
-              {/* La migración 001 (`usuarios.colaborador_id`) todavía no está
-                  aplicada, así que el formulario NO inventa el vínculo: sólo avisa. */}
               {rol === 'colaborador' && (
-                <p className="field-help text-warning">
-                  <AlertCircle size={12} className="mr-1 inline" />
-                  Para que un usuario con rol <strong>colaborador</strong> quede vinculado a una
-                  ficha de colaborador hace falta la migración{' '}
-                  <code>001_usuarios_colaborador_id.sql</code> (columna{' '}
-                  <code>usuarios.colaborador_id</code>), que aún no está aplicada: el rol se
-                  guardará, pero el portal del colaborador todavía no podrá identificar sus
-                  servicios.
-                  {usuario?.colaboradorId
-                    ? ` Este usuario ya está vinculado al colaborador #${usuario.colaboradorId}.`
-                    : ''}
-                </p>
+                <div className="mt-3">
+                  <label htmlFor="usu-ficha" className="label">
+                    Ficha de colaborador {usuario ? '' : '*'}
+                  </label>
+                  {usuario ? (
+                    <p className="text-body-sm text-text-secondary">
+                      {usuario.colaboradorId
+                        ? `Vinculado a ${
+                            fichas.data?.data.find((c) => c.id === usuario.colaboradorId)?.nombre ??
+                            `la ficha #${usuario.colaboradorId}`
+                          }.`
+                        : 'Sin ficha vinculada: no podrá registrar servicios en el portal.'}
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        id="usu-ficha"
+                        className="select"
+                        value={fichaId}
+                        onChange={(e) => setFichaId(e.target.value)}
+                      >
+                        <option value="">Elige la persona…</option>
+                        {(fichas.data?.data ?? []).map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                            {c.area ? ` · ${c.area}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="field-help">
+                        Así el portal sabe qué servicios y comisiones son suyos. Si no aparece,
+                        créala primero en Colaboradores.
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
             </div>
 
@@ -591,11 +628,7 @@ const UsuarioDrawer: React.FC<{
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting} className="btn-primary">
-              {isSubmitting
-                ? 'Guardando…'
-                : isEdit
-                  ? 'Guardar cambios'
-                  : 'Enviar invitación'}
+              {isSubmitting ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Enviar invitación'}
             </button>
           </footer>
         </form>
@@ -634,12 +667,7 @@ const ConfirmarDesactivar: React.FC<{
           <button type="button" onClick={onCancelar} className="btn-ghost">
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={onConfirmar}
-            disabled={procesando}
-            className="btn-danger"
-          >
+          <button type="button" onClick={onConfirmar} disabled={procesando} className="btn-danger">
             {procesando ? 'Desactivando…' : 'Desactivar'}
           </button>
         </div>

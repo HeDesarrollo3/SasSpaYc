@@ -43,6 +43,7 @@ import {
   type AuditoriaFiltros,
 } from '../services/auditoria.service';
 import { PageHeader } from '../components/PageHeader';
+import { UsuariosService } from '../services/usuarios.service';
 import { formatFechaHora, formatNumero } from '../lib/format';
 import { claseBadge, claseBanner, metaEstado, type EstadoMeta, type Tono } from '../lib/estados';
 
@@ -238,6 +239,17 @@ const AuditoriaPage: React.FC = () => {
   });
 
   const logs = consulta.data?.data ?? [];
+
+  // Nombres de usuario para el filtro y la tabla (antes sólo se veía «#1»).
+  const usuariosQ = useQuery({
+    queryKey: ['usuarios', 'auditoria'],
+    queryFn: () => UsuariosService.listar({ limit: 100 }),
+    staleTime: 5 * 60_000,
+  });
+  const nombreUsuario = new Map(
+    (usuariosQ.data?.data ?? []).map((u) => [Number(u.id), u.nombre] as const),
+  );
+  const hayIp = logs.some((l) => !!l.ip_address);
   const meta = consulta.data?.meta;
   const hayFiltros = Boolean(modulo || accion || usuarioId || fechaDesde || fechaHasta);
 
@@ -257,7 +269,7 @@ const AuditoriaPage: React.FC = () => {
         titulo="Auditoría del sistema"
         descripcion={
           <>
-            Registro de operaciones: quién, qué módulo, qué acción, cuándo y desde qué IP.{' '}
+            Registro de operaciones: quién hizo qué, en qué módulo y cuándo.{' '}
             {formatNumero(meta?.total ?? 0)} {meta?.total === 1 ? 'evento' : 'eventos'} en total.
           </>
         }
@@ -334,20 +346,22 @@ const AuditoriaPage: React.FC = () => {
             <label htmlFor="filtro-usuario" className="label">
               Usuario
             </label>
-            <input
+            <select
               id="filtro-usuario"
-              className="input tabular"
-              type="number"
-              min="1"
-              inputMode="numeric"
-              placeholder="Todos"
+              className="select"
               value={usuarioId}
               onChange={(e) => {
                 setUsuarioId(e.target.value);
                 setPage(1);
               }}
-            />
-            <p className="field-help">Nº de usuario (`#id`), no el nombre.</p>
+            >
+              <option value="">Todos</option>
+              {(usuariosQ.data?.data ?? []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -419,14 +433,14 @@ const AuditoriaPage: React.FC = () => {
                 <th scope="col">Acción</th>
                 <th scope="col">Descripción</th>
                 <th scope="col">Usuario</th>
-                <th scope="col">IP</th>
+                {hayIp && <th scope="col">IP</th>}
               </tr>
             </thead>
             <tbody>
               {consulta.isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={`skeleton-${i}`}>
-                    <td colSpan={6} className="p-4">
+                    <td colSpan={hayIp ? 6 : 5} className="p-4">
                       <div className="skeleton h-4 w-full" />
                     </td>
                   </tr>
@@ -453,9 +467,7 @@ const AuditoriaPage: React.FC = () => {
                         <BadgeAccion accion={log.accion} />
                       </td>
                       <td className="max-w-md">
-                        <span className="block text-text-secondary">
-                          {log.descripcion || '—'}
-                        </span>
+                        <span className="block text-text-secondary">{log.descripcion || '—'}</span>
                         {log.registro_id !== null && (
                           <span className="mt-0.5 block text-body-sm text-text-muted">
                             Registro #{log.registro_id}
@@ -482,20 +494,21 @@ const AuditoriaPage: React.FC = () => {
                       <td className="text-text-secondary">
                         {log.usuario_id !== null ? (
                           <span className="flex items-center gap-1.5">
-                            <User size={12} aria-hidden="true" />#{log.usuario_id}
+                            <User size={12} aria-hidden="true" />
+                            {nombreUsuario.get(Number(log.usuario_id)) ?? `#${log.usuario_id}`}
                           </span>
                         ) : (
                           '—'
                         )}
                       </td>
-                      <td className="text-text-muted">{log.ip_address ?? '—'}</td>
+                      {hayIp && <td className="text-text-muted">{log.ip_address ?? '—'}</td>}
                     </tr>
                   );
                 })}
 
               {!consulta.isLoading && logs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-10 text-center">
+                  <td colSpan={hayIp ? 6 : 5} className="p-10 text-center">
                     {hayFiltros ? (
                       <>
                         <p className="text-body text-text-secondary">
@@ -535,8 +548,8 @@ const AuditoriaPage: React.FC = () => {
         <div className="flex items-center justify-between border-t border-border-subtle p-4 text-body-sm text-text-secondary">
           <span className="tabular">
             Página {formatNumero(meta?.page ?? 1)} de{' '}
-            {formatNumero(Math.max(1, meta?.totalPages ?? 1))} ·{' '}
-            {formatNumero(meta?.total ?? 0)} {meta?.total === 1 ? 'evento' : 'eventos'}
+            {formatNumero(Math.max(1, meta?.totalPages ?? 1))} · {formatNumero(meta?.total ?? 0)}{' '}
+            {meta?.total === 1 ? 'evento' : 'eventos'}
           </span>
           <div className="flex gap-2">
             <button

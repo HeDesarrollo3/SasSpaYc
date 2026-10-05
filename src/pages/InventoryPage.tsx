@@ -720,7 +720,7 @@ function TablaProductos({
                       {producto.activo === undefined ? (
                         <span
                           className={claseBadge('neutral')}
-                          title="Requiere la migración 004 (columna activo)"
+                          title="Sin dato de estado"
                         >
                           Sin dato
                         </span>
